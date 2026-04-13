@@ -95,6 +95,50 @@
     font-size: 7px; color: #3a6a3a; text-align: center;
     padding: 5px 0; letter-spacing: 1px;
   }
+  /* ── Pantalla "gira el dispositivo" ── */
+  #rotate-msg {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: #050510;
+    z-index: 999;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 24px;
+    text-align: center;
+    padding: 20px;
+  }
+  #rotate-msg .dino-icon {
+    font-size: 64px;
+    animation: tilt 1.4s ease-in-out infinite;
+  }
+  @keyframes tilt {
+    0%,100% { transform: rotate(-20deg); }
+    50%      { transform: rotate(20deg); }
+  }
+  #rotate-msg p {
+    font-family: 'Press Start 2P', monospace;
+    color: #ffd040;
+    font-size: clamp(8px, 3vw, 12px);
+    line-height: 2;
+  }
+  #rotate-msg small {
+    font-family: 'Press Start 2P', monospace;
+    color: #3a6a3a;
+    font-size: clamp(6px, 2vw, 9px);
+  }
+
+  /* Mostrar en portrait, ocultar en landscape */
+  @media (orientation: portrait) {
+    #rotate-msg { display: flex; }
+    #wrap        { visibility: hidden; }
+  }
+  @media (orientation: landscape) {
+    #rotate-msg { display: none; }
+    #wrap        { visibility: visible; }
+  }
+
 
   /* ── Ajustes para pantallas pequeñas ── */
   @media (max-width: 480px) {
@@ -804,5 +848,12 @@ document.getElementById('qin').addEventListener('keydown', e=>{
 // ── Loop ─────────────────────────────────────────
 (function loop(){ update(); render(); requestAnimationFrame(loop); })();
 </script>
+
+<!-- Mensaje de rotación para portrait -->
+<div id="rotate-msg">
+  <div class="dino-icon">🦕</div>
+  <p>¡GIRA TU<br>DISPOSITIVO!</p>
+  <small>Este juego funciona<br>en horizontal</small>
+</div>
 </body>
 </html>
