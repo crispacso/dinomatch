@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🦕 DinoMath – Tablas Pitagóricas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    background: #050510;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 20px 10px;
+    font-family: 'Press Start 2P', 'Courier New', monospace;
+  }
+  #wrap {
+    position: relative;
+    width: 100%;
+    max-width: 720px;
+  }
+  canvas { display: block; width: 100%; height: auto; image-rendering: pixelated; }
+  
+  #qi {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 16px;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0,0,16,0.78);
+    z-index: 20;
+  }
+  #qbox {
+    background: #10102e;
+    border: 4px solid #ffd040;
+    border-radius: 10px;
+    padding: 22px 30px;
+    text-align: center;
+    min-width: 280px;
+    box-shadow: 0 0 0 2px #10102e, 0 0 0 6px rgba(255,208,64,0.15);
+  }
+  #qsubtitle { font-size: 8px; color: #ffd040; margin-bottom: 12px; letter-spacing: 1px; }
+  #qtxt { font-size: 28px; color: #fff; margin-bottom: 14px; letter-spacing: 3px; }
+  #qdots { display: flex; justify-content: center; gap: 9px; margin-bottom: 14px; }
+  .dot { width: 14px; height: 14px; border-radius: 50%; background: #ffd040; border: 2px solid #aa8800; transition: background 0.2s; }
+  .dot.x { background: #ff3030; border-color: #880000; }
+  #qrow { display: flex; gap: 10px; justify-content: center; }
+  #qin {
+    font-family: 'Press Start 2P','Courier New',monospace;
+    font-size: 22px; width: 110px; text-align: center;
+    padding: 7px 10px; background: #000; color: #3aff3a;
+    border: 3px solid #3aaa3a; border-radius: 5px; outline: none;
+    transition: border-color 0.15s, color 0.15s;
+    -moz-appearance: textfield;
+  }
+  #qin::-webkit-outer-spin-button, #qin::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  #qin.err { border-color: #ff3030; color: #ff3030; animation: shake 0.35s; }
+  #qin:disabled, #qok:disabled { opacity: 0.4; cursor: not-allowed; }
+  @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-8px)} 75%{transform:translateX(8px)} }
+  #qok {
+    font-family: 'Press Start 2P','Courier New',monospace;
+    font-size: 11px; padding: 9px 16px;
+    background: #3aaa3a; color: #000;
+    border: 3px solid #1a6a1a; border-radius: 5px;
+    cursor: pointer; box-shadow: 3px 3px 0 #1a6a1a;
+    transition: transform 0.08s, box-shadow 0.08s;
+  }
+  #qok:hover { transform: translate(-1px,-1px); box-shadow: 4px 4px 0 #1a6a1a; }
+  #qok:active { transform: translate(2px,2px); box-shadow: 1px 1px 0 #1a6a1a; }
+  #qhint { font-size: 9px; color: #ff6060; margin-top: 10px; min-height: 16px; }
+  
+  #tinfo {
+    background: #080818; border: 2px solid #1a3a1a;
+    border-top: none; border-radius: 0 0 6px 6px;
+    font-size: 7px; color: #3a6a3a; text-align: center;
+    padding: 5px 0; letter-spacing: 1px;
+  }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="cv" width="720" height="300"></canvas>
+  <div id="qi">
+    <div id="qbox">
+      <div id="qsubtitle">¡RESPONDE PARA SALTAR!</div>
+      <div id="qtxt">5 × 7 = ?</div>
+      <div id="qdots">
+        <div class="dot" id="d0"></div>
+        <div class="dot" id="d1"></div>
+        <div class="dot" id="d2"></div>
+      </div>
+      <div id="qrow">
+        <input type="text" inputmode="numeric" pattern="[0-9]*" id="qin" placeholder="?" autocomplete="off" maxlength="3">
+        <button id="qok">✓ OK</button>
+      </div>
+      <div id="qhint"></div>
+    </div>
+  </div>
+  <div id="tinfo">Tablas activas: × 1 × 2</div>
+</div>
+
+<script>
+const cv = document.getElementById('cv');
+const cx = cv.getContext('2d');
+const W = 720, H = 300;
+const HH = 44; // HUD height
+const GY = 250; // ground Y
+const DX = 85;  // dino feet X
+
+// ── State ──────────────────────────────────────
+let gs = 'start'; // start|playing|question|wait|levelDone|gameOver|win
+let lv = 1, lives = 3, score = 0;
+let correct = 0, levelWrong = 0, lastWrong = 0;
+let frame = 0, scroll = 0;
+const NEED = 3;
+
+let dino = { y: GY, vy: 0, jumping: false, state: 'run', timer: 0 };
+let obs = null;
+let obsTimer = 100;
+let q = null, qWrong = 0;
+let parts = [];
+
+// ── Mountains (deterministic) ───────────────────
+function genMtn(n, seed, minW, maxW, minH, maxH) {
+  let s = seed;
+  const r = () => { s = (s * 1664525 + 1013904223) & 0x7fffffff; return s / 0x7fffffff; };
+  const pts = []; let x = 0;
+  for (let i = 0; i < n; i++) {
+    const w = (minW + r() * (maxW - minW)) | 0;
+    const h = (minH + r() * (maxH - minH)) | 0;
+    pts.push(x, w, h);
+    x += w;
+  }
+  return { pts, total: x };
+}
+const M1 = genMtn(60, 0xABCD, 70, 160, 35, 80);
+const M2 = genMtn(90, 0x1234, 35, 90, 14, 42);
+
+// ── Tables ─────────────────────────────────────
+function getTables(l) {
+  // Niveles 1-7: tablas fáciles
+  if (l<=2)  return [1,2];
+  if (l<=4)  return [1,2,3];
+  if (l<=6)  return [1,2,3,4];
+  if (l<=7)  return [1,2,3,4,5];
+  // Nivel 8 en adelante: SOLO tablas difíciles (sin las fáciles)
+  if (l<=11) return [5,6,7];
+  if (l<=15) return [5,6,7,8];
+  if (l<=20) return [5,6,7,8,9];
+  return [5,6,7,8,9,10];
+}
+function mkQ(l) {
+  const t = getTables(l);
+  const a = t[Math.random()*t.length|0];
+  const b = 1 + (Math.random()*10|0);
+  return { a, b, ans: a * b };
+}
+function spd(l) { return 3.2 + (l-1)*0.13; }
+
+// ── Drawing helpers ─────────────────────────────
+function rr(x, y, w, h, r) { cx.beginPath(); cx.roundRect(x,y,w,h,r); }
+function ct(txt, y, fs, col, x) {
+  cx.fillStyle = col; cx.font = `${fs}px 'Press Start 2P',monospace`;
+  cx.textAlign = x ? 'left' : 'center';
+  cx.fillText(txt, x || W/2, y);
+  cx.textAlign = 'left';
+}
+
+// ── HUD ────────────────────────────────────────
+function drawHUD() {
+  cx.fillStyle = '#08081e';
+  cx.fillRect(0, 0, W, HH);
+  cx.strokeStyle = '#2a6a2a'; cx.lineWidth = 2;
+  cx.beginPath(); cx.moveTo(0,HH); cx.lineTo(W,HH); cx.stroke();
+
+  // Level
+  ct('NVL', 14, 7, '#3a6a3a', 12); ct(`${lv}/30`, 30, 12, '#ffd040', 12);
+
+  // Lives
+  for (let i = 0; i < 3; i++) {
+    cx.fillStyle = i < lives ? '#ff3355' : '#2a1a2a';
+    cx.beginPath(); cx.arc(295+i*28, 22, 10, 0, 6.28); cx.fill();
+    if (i < lives) {
+      cx.fillStyle = '#ff6688';
+      cx.fillRect(291+i*28, 14, 5, 4);
+      cx.fillRect(296+i*28, 14, 5, 4);
+    }
+  }
+
+  // Progress bar
+  ct('NIVEL', 14, 7, '#3a6a3a', 395);
+  const pw=165, ph=8, px=395, py=22;
+  cx.fillStyle = '#0a2a0a'; cx.fillRect(px,py,pw,ph);
+  cx.fillStyle = '#3aaa3a'; cx.fillRect(px,py,(correct/NEED)*pw,ph);
+  cx.strokeStyle = '#3aaa3a'; cx.lineWidth=1; cx.strokeRect(px,py,pw,ph);
+  ct(`${correct}/${NEED}`, 32, 7, '#5adc5a', 395+pw+6);
+
+  // Score
+  ct('PTS', 14, 7, '#3a6a3a', 595); ct(`${score}`, 30, 10, '#ffd040', 595);
+}
+
+// ── Background ──────────────────────────────────
+function drawBG() {
+  const dark = Math.min(1,(lv-1)/22);
+  const h1 = (18-dark*14)|0, h2 = (28-dark*20)|0;
+  const gr = cx.createLinearGradient(0,HH,0,GY);
+  gr.addColorStop(0, `hsl(220,60%,${h1}%)`);
+  gr.addColorStop(1, `hsl(200,50%,${h2}%)`);
+  cx.fillStyle = gr; cx.fillRect(0,HH,W,GY-HH);
+
+  if (lv > 10) {
+    const a = Math.min(0.9,(lv-10)/7);
+    for (let i=0; i<32; i++) {
+      const sx=(i*7919*31+9999)%W, sy=HH+((i*6271*13+1111)%(GY-HH-20));
+      cx.fillStyle=`rgba(255,255,255,${a})`;
+      cx.beginPath(); cx.arc(sx,sy, 0.8+(i%3)*0.4, 0, 6.28); cx.fill();
+    }
+  }
+
+  drawMtns(M1, scroll*0.10, GY-4, `hsl(220,25%,${Math.max(5,12-lv*0.22)|0}%)`);
+  drawMtns(M2, scroll*0.28, GY-1, `hsl(128,22%,${Math.max(4,11-lv*0.15)|0}%)`);
+
+  const gl = Math.max(7,15-lv*0.15)|0;
+  cx.fillStyle=`hsl(122,32%,${gl}%)`; cx.fillRect(0,GY,W,H-GY-16);
+  cx.fillStyle=`hsl(122,38%,${gl+6}%)`; cx.fillRect(0,GY-2,W,5);
+
+  cx.fillStyle=`hsl(122,34%,${gl+4}%)`;
+  for (let i=0;i<15;i++) {
+    const gx=((i*58-scroll*0.6)%(W+58)+W+58)%(W+58)-58;
+    cx.fillRect(gx,GY+8,26,3);
+  }
+}
+
+function drawMtns({pts,total}, rawOff, baseY, color) {
+  const off = rawOff % total;
+  cx.fillStyle = color;
+  cx.beginPath();
+  cx.moveTo(-5,H); cx.lineTo(-5,baseY);
+  for (let rep=0; rep<=1; rep++) {
+    for (let i=0; i<pts.length; i+=3) {
+      const bx = pts[i] + rep*total - off;
+      cx.lineTo(bx + pts[i+1]/2, baseY - pts[i+2]);
+      cx.lineTo(bx + pts[i+1], baseY);
+    }
+  }
+  cx.lineTo(W+5,baseY); cx.lineTo(W+5,H); cx.fill();
+}
+
+// ── Dino ────────────────────────────────────────
+function drawDino(x, y) {
+  const hurt = dino.state==='hurt';
+  const celebrate = dino.state==='win';
+  let dy = y;
+  if (celebrate) dy -= Math.abs(Math.sin(frame*0.22))*8;
+
+  const G  = hurt?'#d04848':'#5ec45e';
+  const DG = hurt?'#922020':'#3a8a3a';
+  const LG = '#7adc7a', BY='#c0e89a', WH='#fff', BK='#111';
+
+  const lp = dino.jumping ? 7 : Math.sin(frame*0.22)*8;
+
+  // Tail
+  cx.fillStyle=DG;
+  cx.beginPath();
+  cx.moveTo(x+3,dy-28); cx.quadraticCurveTo(x-18,dy-18,x-28,dy-14);
+  cx.quadraticCurveTo(x-22,dy-10,x-8,dy-12); cx.quadraticCurveTo(x-2,dy-21,x+3,dy-22);
+  cx.fill();
+
+  // Back leg
+  cx.fillStyle=DG;
+  const bly = dino.jumping?9:Math.max(3,12-lp);
+  cx.fillRect(x+16,dy-bly,9,bly); cx.fillRect(x+13,dy-3,14,3);
+
+  // Body
+  cx.fillStyle=G; rr(x+1,dy-45,32,22,7); cx.fill();
+  cx.fillStyle=BY; rr(x+6,dy-38,20,14,5); cx.fill();
+
+  // Front leg
+  cx.fillStyle=DG;
+  const fly = dino.jumping?9:Math.max(3,12+lp);
+  cx.fillRect(x+1,dy-fly,9,fly); cx.fillRect(x-1,dy-3,14,3);
+
+  // Neck
+  cx.fillStyle=G; cx.fillRect(x+19,dy-60,12,17);
+
+  // Head
+  cx.fillStyle=G; rr(x+12,dy-76,28,18,[7,7,4,4]); cx.fill();
+
+  // Spikes
+  cx.fillStyle=LG;
+  for(let i=0;i<3;i++){cx.beginPath();cx.moveTo(x+16+i*6,dy-76);cx.lineTo(x+19+i*6,dy-85);cx.lineTo(x+22+i*6,dy-76);cx.fill();}
+
+  // Snout
+  cx.fillStyle=DG; rr(x+32,dy-70,12,9,[0,4,4,0]); cx.fill();
+  cx.fillStyle='#e8e8e8'; cx.fillRect(x+34,dy-62,3,2); cx.fillRect(x+38,dy-62,3,2);
+
+  // Eye
+  cx.fillStyle=WH; cx.beginPath(); cx.arc(x+26,dy-65,5,0,6.28); cx.fill();
+  cx.fillStyle=BK; cx.beginPath(); cx.arc(x+27,dy-65,3,0,6.28); cx.fill();
+  cx.fillStyle=WH; cx.fillRect(x+27,dy-67,2,2);
+
+  if (hurt) { cx.strokeStyle=BK; cx.lineWidth=2; cx.beginPath(); cx.moveTo(x+22,dy-73); cx.lineTo(x+30,dy-71); cx.stroke(); }
+
+  // Arm
+  cx.fillStyle=DG; rr(x+24,dy-50,7,10,3); cx.fill();
+
+  // Celebration: sparkles shoot UP (not dizzy orbit)
+  if (celebrate) {
+    const cols=['#ffd040','#3aff3a','#ff88bb','#88ddff','#ffaa44'];
+    for(let i=0;i<5;i++){
+      const cycle=(frame*2+i*16)%72;
+      const prog=cycle/72;
+      const sx=x-8+i*13+Math.sin(frame*0.09+i*1.2)*3;
+      const sy=dy-52-prog*60;
+      cx.globalAlpha=Math.max(0,1-prog*1.5);
+      cx.fillStyle=cols[i];
+      cx.font='13px serif';
+      cx.fillText(i%2===0?'★':'✦',sx-5,sy+6);
+    }
+    cx.globalAlpha=1;
+  }
+}
+
+// ── Obstacle ────────────────────────────────────
+function drawRock(rx) {
+  cx.fillStyle='#70708a';
+  cx.beginPath();
+  cx.moveTo(rx+4,GY);cx.lineTo(rx,GY-20);cx.lineTo(rx+7,GY-40);
+  cx.lineTo(rx+20,GY-45);cx.lineTo(rx+34,GY-38);cx.lineTo(rx+42,GY-20);cx.lineTo(rx+38,GY);
+  cx.fill();
+  cx.fillStyle='#9898b0';
+  cx.beginPath(); cx.moveTo(rx+9,GY-22); cx.lineTo(rx+14,GY-40); cx.lineTo(rx+25,GY-38); cx.fill();
+  cx.fillStyle='rgba(0,0,0,0.2)';
+  cx.beginPath(); cx.ellipse(rx+20,GY+2,23,5,0,0,6.28); cx.fill();
+}
+
+function drawPtero(px, py) {
+  const fl = Math.sin(frame*0.15)*10;
+  const C1='#7a3810', C2='#924018', C3='#b05020';
+  cx.fillStyle=C2;
+  cx.beginPath(); cx.moveTo(px+14,py); cx.lineTo(px-24,py-20+fl); cx.lineTo(px-12,py+9); cx.lineTo(px+4,py+5); cx.fill();
+  cx.beginPath(); cx.moveTo(px+26,py); cx.lineTo(px+60,py-20+fl); cx.lineTo(px+52,py+9); cx.lineTo(px+30,py+5); cx.fill();
+  cx.fillStyle=C1; cx.beginPath(); cx.ellipse(px+20,py,15,9,-0.1,0,6.28); cx.fill();
+  cx.fillStyle=C3; cx.beginPath(); cx.ellipse(px+37,py-4,12,7,0.2,0,6.28); cx.fill();
+  cx.fillStyle='#c89828'; cx.beginPath(); cx.moveTo(px+46,py-7); cx.lineTo(px+64,py-11); cx.lineTo(px+46,py-1); cx.fill();
+  cx.fillStyle='#fff'; cx.beginPath(); cx.arc(px+40,py-6,3,0,6.28); cx.fill();
+  cx.fillStyle='#000'; cx.beginPath(); cx.arc(px+41,py-6,2,0,6.28); cx.fill();
+  cx.fillStyle='#554';
+  cx.beginPath(); cx.arc(px-24,py-20+fl,3,0,6.28); cx.fill();
+  cx.beginPath(); cx.arc(px+60,py-20+fl,3,0,6.28); cx.fill();
+}
+
+// ── Particles ───────────────────────────────────
+function spawnParts(x,y,color,n=14){
+  for(let i=0;i<n;i++){
+    const a=Math.random()*6.28, sp=1.5+Math.random()*4.5;
+    parts.push({x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp-2.8,color,r:2.5+Math.random()*3.5,life:(35+Math.random()*20)|0,max:55});
+  }
+}
+function drawParts(){
+  for(let i=parts.length-1;i>=0;i--){
+    const p=parts[i];
+    cx.globalAlpha=p.life/p.max; cx.fillStyle=p.color;
+    cx.beginPath(); cx.arc(p.x,p.y,p.r,0,6.28); cx.fill();
+    p.x+=p.vx; p.y+=p.vy; p.vy+=0.2; p.life--;
+    if(p.life<=0) parts.splice(i,1);
+  }
+  cx.globalAlpha=1;
+}
+
+// ── Screen overlays (on canvas) ─────────────────
+function overlay(a=0.88){ cx.fillStyle=`rgba(0,0,16,${a})`; cx.fillRect(0,0,W,H-16); }
+
+function drawStart(){
+  drawBG();
+  overlay();
+  const bounce=Math.abs(Math.sin(frame*0.05))*10;
+  drawDino(W/2-20, GY-45-bounce);
+
+  ct('DINO MATH',H/2-68,26,'#3aff3a');
+  cx.fillStyle='#1a6a1a'; cx.font="26px 'Press Start 2P',monospace";
+  cx.textAlign='center'; cx.fillText('DINO MATH',W/2+2,H/2-66); cx.textAlign='left';
+  cx.fillStyle='#3aff3a'; cx.font="26px 'Press Start 2P',monospace";
+  cx.textAlign='center'; cx.fillText('DINO MATH',W/2,H/2-68); cx.textAlign='left';
+
+  ct('Responde las tablas pitagoricas',H/2-28,8,'#ffd040');
+  ct('para que el dino salte!',H/2-12,8,'#ffd040');
+  ct('30 niveles · Tablas del 1 al 10',H/2+12,7,'#5a8a8a');
+  ct('❤❤❤ 3 vidas · 3 aciertos/nivel',H/2+26,7,'#5a8a8a');
+
+  if((frame/32|0)%2===0) ct('[ ESPACIO o CLICK para empezar ]',H/2+58,8,'#ffffff');
+}
+
+function drawLevelDone(){
+  drawBG();
+  overlay();
+  drawParts();   // confetti lingers on screen
+  drawDino(W/2-20,GY-5);
+
+  const s = lastWrong===0?'★★★':lastWrong<=2?'★★☆':'★☆☆';
+  const col = lastWrong===0?'#ffd040':lastWrong<=2?'#aaaa00':'#886600';
+
+  ct(`NIVEL ${lv-1} SUPERADO`,H/2-58,15,'#3aaa3a');
+  ct(s,H/2-22,28,col);
+  ct(`Puntuacion: ${score}`,H/2+18,9,'#ffd040');
+
+  if((frame/28|0)%2===0) ct('[ ESPACIO o CLICK para continuar ]',H/2+55,7,'#fff');
+}
+
+function drawGameOver(){
+  drawBG();
+  overlay();
+  cx.fillStyle='#ff2020'; cx.font="28px 'Press Start 2P',monospace";
+  cx.textAlign='center';
+  cx.fillText('GAME',W/2,H/2-38);
+  cx.fillText('OVER',W/2,H/2-8);
+  cx.textAlign='left';
+  ct(`Llegaste al nivel ${lv}/30`,H/2+22,8,'#aaaaaa');
+  ct(`Puntuacion: ${score}`,H/2+40,9,'#ffd040');
+  if((frame/28|0)%2===0) ct('[ ESPACIO o CLICK para reintentar ]',H/2+64,7,'#fff');
+}
+
+function drawWin(){
+  drawBG();
+  overlay(0.82);
+  if(frame%7===0) spawnParts(80+Math.random()*560,H/2+60,['#ffd040','#3aaa3a','#ff88bb','#88aaff'][Math.random()*4|0],6);
+  drawParts();
+  const bounce=Math.abs(Math.sin(frame*0.15))*10;
+  drawDino(W/2-20,GY-45-bounce);
+  ct('¡CAMPEON DE',H/2-68,16,'#ffd040');
+  ct('LAS TABLAS!',H/2-46,16,'#ffd040');
+  ct('Superaste los 30 niveles!',H/2-4,8,'#3aaa3a');
+  ct(`Puntuacion final: ${score}`,H/2+18,9,'#ffd040');
+  if((frame/28|0)%2===0) ct('[ ESPACIO o CLICK para jugar de nuevo ]',H/2+55,7,'#fff');
+}
+
+// ── Logic ───────────────────────────────────────
+function spawnObs(){
+  const type = lv>10 && Math.random()<0.42 ? 'ptero' : 'rock';
+  obs={type, x:W+30, y:type==='ptero'?GY-62:GY, frozen:false};
+  obsTimer=(80+Math.random()*55)|0;
+}
+
+let qTimer = null;         // pending timeout for question dismissal
+let lifeLostThisQ = false; // guard against double life deduction
+
+function triggerQ(){
+  // Cancel any leftover timer from previous question
+  if(qTimer){ clearTimeout(qTimer); qTimer=null; }
+
+  q=mkQ(lv); qWrong=0; lifeLostThisQ=false;
+  gs='question';
+
+  // Update display
+  document.getElementById('qtxt').textContent=`${q.a} × ${q.b} = ?`;
+  const inp=document.getElementById('qin');
+  inp.value=''; inp.className='';
+  inp.disabled=false; inp.readOnly=false;          // re-enable for new question
+  document.getElementById('qok').disabled=false;  // re-enable button
+  document.getElementById('qhint').textContent='';
+  for(let i=0;i<3;i++) document.getElementById(`d${i}`).className='dot';
+  document.getElementById('qi').style.display='flex';
+  setTimeout(()=>inp.focus(),40);
+}
+
+function checkAns(){
+  // Guard: only process when question is active and life hasn't been lost yet this question
+  if(gs!=='question' || lifeLostThisQ) return;
+
+  const inp=document.getElementById('qin');
+  // Strip anything that isn't a digit, then parse
+  const raw=inp.value.trim().replace(/[^0-9]/g,'');
+  if(!raw) return;
+  const val=parseInt(raw,10);
+  // Sanity check: valid multiplication results are 1–100
+  if(isNaN(val) || val<1 || val>100) return;
+
+  if(val===q.ans){
+    // ── CORRECT ──────────────────────────────────
+    if(qTimer){ clearTimeout(qTimer); qTimer=null; }
+    playSound(true);
+    spawnParts(obs?obs.x-20:W/2,obs?obs.y-10:GY-30,'#ffd040',18);
+    spawnParts(DX+20,GY-45,'#5aff5a',10);
+    document.getElementById('qi').style.display='none';
+    obs=null;
+    correct++; score+=Math.max(50,100+(lv-1)*15+Math.max(0,2-qWrong)*20);
+    dino.vy=-13; dino.jumping=true; dino.state='jump';
+    if(correct>=NEED){ dino.state='win'; dino.timer=100; lastWrong=levelWrong; gs='wait'; }
+    else gs='playing';
+
+  } else {
+    // ── WRONG ────────────────────────────────────
+    playSound(false);
+    qWrong++; levelWrong++;
+    inp.className='err';
+    if(qWrong<=3) document.getElementById(`d${qWrong-1}`).className='dot x';
+
+    if(qWrong>=3){
+      // ── THIRD WRONG: lock question, lose life ──
+      lifeLostThisQ=true;
+      inp.value='';
+      inp.disabled=true;
+      document.getElementById('qok').disabled=true;
+      document.getElementById('qhint').textContent=`La respuesta era: ${q.ans}`;
+      lives--; dino.state='hurt'; dino.timer=55;
+      const nextGs=lives<=0?'gameOver':'playing';
+      qTimer=setTimeout(()=>{
+        qTimer=null;
+        document.getElementById('qi').style.display='none';
+        obs=null; gs=nextGs;
+      },1500);
+    } else {
+      // ── 1st / 2nd wrong: clear IMMEDIATELY, lock during shake animation ──
+      inp.value='';            // clear NOW so next keypress starts fresh
+      inp.readOnly=true;       // block typing during the 530ms animation
+      setTimeout(()=>{
+        inp.className='';
+        inp.readOnly=false;
+        inp.focus();
+      },530);
+    }
+  }
+}
+
+// ── Update ──────────────────────────────────────
+function update(){
+  frame++;
+  if(gs==='playing'){
+    scroll+=spd(lv);
+    if(dino.jumping){ dino.vy+=0.60; dino.y+=dino.vy; if(dino.y>=GY){dino.y=GY;dino.vy=0;dino.jumping=false;dino.state='run';} }
+    if(dino.timer>0){ dino.timer--; if(!dino.timer) dino.state='run'; }
+    if(!obs){ obsTimer--; if(obsTimer<=0) spawnObs(); }
+    if(obs&&!obs.frozen){ obs.x-=spd(lv); if(obs.x<=DX+115){obs.frozen=true;triggerQ();} if(obs.x<-90)obs=null; }
+  } else if(gs==='question'){
+    // Dino idles, animation continues
+  } else if(gs==='wait'){
+    scroll+=spd(lv)*0.4;
+    // Confetti burst every 8 frames during celebration
+    if(frame%8===0){
+      const cols=['#ffd040','#3aff3a','#ff88bb','#88aaff','#ffaa44','#ff4488'];
+      const col=cols[Math.random()*cols.length|0];
+      // Shoot upward from around the dino
+      const bx=DX+Math.random()*40-10;
+      for(let i=0;i<4;i++){
+        const a=-Math.PI/2+(-0.6+Math.random()*1.2); // mostly upward spread
+        const sp=3+Math.random()*4;
+        parts.push({x:bx,y:GY-50,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,color:col,r:3+Math.random()*3,life:40+Math.random()*20|0,max:60});
+      }
+    }
+    if(dino.timer>0) dino.timer--;
+    else { gs='levelDone'; correct=0; levelWrong=0; lv++; }
+  } else if(gs==='start'||gs==='levelSelect'||gs==='levelDone'||gs==='gameOver'||gs==='win'){
+    scroll+=0.5;
+  }
+}
+
+// ── Level Select ─────────────────────────────────
+const LS={bw:88,bh:26,hg:12,vg:8,cols:5};
+
+function drawLevelSelect(){
+  drawBG();
+  overlay();
+
+  ct('ELIGE TU NIVEL',24,12,'#3aff3a');
+  ct('Empieza desde cualquier nivel hasta el 15',40,6,'#ffd040');
+
+  const {bw,bh,hg,vg,cols}=LS;
+  const gw=cols*bw+(cols-1)*hg;
+  const gx=(W-gw)/2;
+
+  for(let i=0;i<30;i++){
+    const row=Math.floor(i/cols), col=i%cols;
+    const lvNum=i+1, locked=lvNum>15;
+    const extraY=row>=3?20:0;
+    const bx=gx+col*(bw+hg);
+    const by=56+row*(bh+vg)+extraY;
+
+    // Button bg + border
+    cx.fillStyle=locked?'#0e0e1c':'#112011';
+    cx.beginPath(); cx.roundRect(bx,by,bw,bh,5); cx.fill();
+    cx.strokeStyle=locked?'#22223a':'#2a6a2a';
+    cx.lineWidth=locked?1:1.5;
+    cx.beginPath(); cx.roundRect(bx,by,bw,bh,5); cx.stroke();
+
+    cx.textAlign='center';
+    if(locked){
+      cx.fillStyle='#2e2e48';
+      cx.font="7px 'Press Start 2P',monospace";
+      cx.fillText(`${lvNum}`,bx+bw/2+8,by+bh/2+3);
+      cx.font='10px serif'; cx.fillText('🔒',bx+bw/2-14,by+bh/2+4);
+    } else {
+      // Pulse effect on hovered-ish level (just the one matching frame % 15)
+      cx.fillStyle='#ffd040';
+      cx.font="8px 'Press Start 2P',monospace";
+      cx.fillText(`NVL ${lvNum}`,bx+bw/2,by+bh/2+1);
+      const t2=getTables(lvNum);
+      cx.fillStyle='#3a7a3a';
+      cx.font="5px 'Press Start 2P',monospace";
+      const hint=lvNum>=8?'x5 ~ 10':`tabla x${t2[t2.length-1]}`;
+      cx.fillText(hint,bx+bw/2,by+bh-2);
+    }
+    cx.textAlign='left';
+  }
+
+  // Separator between unlocked / locked sections
+  const divY=56+3*(bh+vg)+2;
+  cx.strokeStyle='#2a3a2a'; cx.lineWidth=1;
+  cx.beginPath(); cx.moveTo(gx,divY); cx.lineTo(gx+gw,divY); cx.stroke();
+  ct('Niveles 16-30: hay que ganárselos jugando  🔒',divY+9,5,'#334433');
+
+  if((frame/30|0)%2===0){
+    ct('CLICK en un nivel  ·  ESPACIO = desde nivel 1',292,6,'#556677');
+  }
+}
+
+function handleLevelSelect(mx,my){
+  const {bw,bh,hg,vg,cols}=LS;
+  const gx=(W-(cols*bw+(cols-1)*hg))/2;
+  for(let i=0;i<15;i++){
+    const row=Math.floor(i/cols), col=i%cols;
+    const bx=gx+col*(bw+hg);
+    const by=56+row*(bh+vg);
+    if(mx>=bx&&mx<=bx+bw&&my>=by&&my<=by+bh){ startFrom(i+1); return; }
+  }
+}
+
+function startFrom(startLv){
+  lv=startLv; lives=3; score=0; correct=0; levelWrong=0; lastWrong=0;
+  obs=null; obsTimer=100; frame=0; scroll=0; parts=[];
+  dino={y:GY,vy:0,jumping:false,state:'run',timer:0};
+  if(qTimer){ clearTimeout(qTimer); qTimer=null; }
+  lifeLostThisQ=false;
+  document.getElementById('qi').style.display='none';
+  gs='playing';
+  updateTableInfo();
+}
+
+// ── Render ──────────────────────────────────────
+function render(){
+  cx.clearRect(0,0,W,H);
+
+  if(gs==='start')       { drawStart(); return; }
+  if(gs==='levelSelect') { drawLevelSelect(); return; }
+  if(gs==='levelDone')   { drawLevelDone(); return; }
+  if(gs==='gameOver')    { drawGameOver(); return; }
+  if(gs==='win')         { drawWin(); return; }
+
+  drawBG();
+  if(obs){ if(obs.type==='rock') drawRock(obs.x-21); else drawPtero(obs.x-30,obs.y); }
+  drawDino(DX, dino.y);
+  drawParts();
+  drawHUD();
+
+  // Bottom info strip
+  const t=getTables(lv);
+  cx.fillStyle='rgba(0,0,20,0.6)'; cx.fillRect(0,H-17,W,17);
+}
+
+// ── Audio ────────────────────────────────────────
+let ac=null;
+function getAC(){ if(!ac) ac=new(window.AudioContext||window.webkitAudioContext)(); return ac; }
+function playSound(ok){
+  try{
+    const a=getAC();
+    if(ok){
+      [523,659,784].forEach((f,i)=>{ const o=a.createOscillator(),g=a.createGain(); o.connect(g); g.connect(a.destination); o.frequency.value=f; o.type='square'; const t=a.currentTime+i*0.08; g.gain.setValueAtTime(0.07,t); g.gain.linearRampToValueAtTime(0,t+0.1); o.start(t); o.stop(t+0.12); });
+    } else {
+      const o=a.createOscillator(),g=a.createGain(); o.connect(g); g.connect(a.destination);
+      o.frequency.setValueAtTime(220,a.currentTime); o.frequency.linearRampToValueAtTime(100,a.currentTime+0.28);
+      g.gain.setValueAtTime(0.12,a.currentTime); g.gain.linearRampToValueAtTime(0,a.currentTime+0.3);
+      o.start(); o.stop(a.currentTime+0.32);
+    }
+  }catch(e){}
+}
+
+// ── Controls ─────────────────────────────────────
+function action(){
+  if(gs==='start')    { gs='levelSelect'; lv=1; return; }
+  if(gs==='levelDone'){ nextLevel(); return; }
+  if(gs==='gameOver'||gs==='win') { gs='levelSelect'; return; }
+}
+
+function startGame(){
+  lv=1; lives=3; score=0; correct=0; levelWrong=0; lastWrong=0;
+  obs=null; obsTimer=100; frame=0; scroll=0; parts=[];
+  dino={y:GY,vy:0,jumping:false,state:'run',timer:0};
+  if(qTimer){ clearTimeout(qTimer); qTimer=null; }
+  lifeLostThisQ=false;
+  document.getElementById('qi').style.display='none';
+  gs='playing';
+  updateTableInfo();
+}
+
+function nextLevel(){
+  if(lv>30){ gs='win'; return; }
+  obs=null; obsTimer=(80+Math.random()*45)|0;
+  if(qTimer){ clearTimeout(qTimer); qTimer=null; }
+  lifeLostThisQ=false;
+  dino={y:GY,vy:0,jumping:false,state:'run',timer:0};
+  gs='playing';
+  updateTableInfo();
+}
+
+function updateTableInfo(){
+  const t=getTables(lv);
+  document.getElementById('tinfo').textContent='Tablas activas: '+t.map(n=>n+'×').join(' ');
+}
+
+cv.addEventListener('click', e=>{
+  if(gs==='levelSelect'){
+    const rect=cv.getBoundingClientRect();
+    const mx=(e.clientX-rect.left)*(W/rect.width);
+    const my=(e.clientY-rect.top)*(H/rect.height);
+    handleLevelSelect(mx,my);
+  } else {
+    action();
+  }
+});
+document.addEventListener('keydown', e=>{
+  if(e.code==='Space'){
+    e.preventDefault();
+    if(gs==='levelSelect') startFrom(1);
+    else action();
+  }
+  if(e.code==='Escape'&&gs==='levelSelect') gs='start';
+});
+document.getElementById('qok').addEventListener('click', checkAns);
+document.getElementById('qin').addEventListener('keydown', e=>{
+  if(e.key==='Enter'){
+    e.preventDefault();
+    e.stopPropagation(); // prevent bubbling to document listener
+    checkAns();
+  }
+});
+
+// ── Loop ─────────────────────────────────────────
+(function loop(){ update(); render(); requestAnimationFrame(loop); })();
+</script>
+</body>
+</html>
