@@ -544,6 +544,83 @@ function drawMummy(mx2, my2) {
   rr(mx2+36,my2-48,10,4,2); cx.fill(); // extended hand
 }
 
+
+// ── Dino Messi ───────────────────────────────────
+function drawMessi(mx, my) {
+  const LB='#74acdf', WH='#fff', GD='#ffd700', DK='#111', SK='#c8a07a';
+  const ST='#3a6abf'; // darker blue stripe
+
+  // Shadow
+  cx.fillStyle='rgba(0,0,0,0.18)';
+  cx.beginPath(); cx.ellipse(mx+20,my+2,22,5,0,0,6.28); cx.fill();
+
+  // Back leg
+  cx.fillStyle='#222'; cx.fillRect(mx+14,my-18,8,18);
+  cx.fillStyle=WH; cx.fillRect(mx+11,my-3,12,3); // boot
+
+  // Body — camiseta celeste
+  cx.fillStyle=LB; rr(mx+2,my-42,30,22,5); cx.fill();
+  // Stripes
+  cx.fillStyle=WH;
+  cx.fillRect(mx+8, my-42, 5, 22);
+  cx.fillRect(mx+19,my-42, 5, 22);
+  // Number 10
+  cx.fillStyle=ST; cx.font="bold 7px monospace"; cx.textAlign='center';
+  cx.fillText('10', mx+17, my-26); cx.textAlign='left';
+
+  // Front leg
+  cx.fillStyle='#222'; cx.fillRect(mx+2,my-18,8,18);
+  cx.fillStyle=WH; cx.fillRect(mx-1,my-3,12,3);
+
+  // Neck
+  cx.fillStyle=SK; cx.fillRect(mx+17,my-54,10,14);
+
+  // Head
+  cx.fillStyle=SK; rr(mx+10,my-70,26,18,[6,6,3,3]); cx.fill();
+
+  // Hair — dark, short beard-ish
+  cx.fillStyle='#2a1a0a';
+  cx.beginPath(); cx.ellipse(mx+23,my-70,13,5,0,Math.PI,Math.PI*2); cx.fill(); // top hair
+  cx.fillRect(mx+10,my-68,5,6);  // sideburn left
+  cx.fillRect(mx+31,my-68,5,6);  // sideburn right
+
+  // Eye
+  cx.fillStyle=WH; cx.beginPath(); cx.arc(mx+20,my-62,4,0,6.28); cx.fill();
+  cx.fillStyle='#3a2010'; cx.beginPath(); cx.arc(mx+21,my-62,2.5,0,6.28); cx.fill();
+  cx.fillStyle=WH; cx.fillRect(mx+21,my-64,2,2);
+
+  // Snout
+  cx.fillStyle='#b08060'; rr(mx+31,my-65,11,8,[0,4,4,0]); cx.fill();
+  cx.fillStyle='#8a6040'; cx.fillRect(mx+33,my-58,3,2); cx.fillRect(mx+37,my-58,2,2);
+
+  // Arm holding trophy
+  cx.fillStyle=LB; rr(mx+24,my-44,8,14,3); cx.fill();
+
+  // World Cup trophy 🏆 (golden cup shape)
+  const tx=mx+34, ty=my-62;
+  // Base
+  cx.fillStyle=GD; cx.fillRect(tx+1,ty+18,12,3); cx.fillRect(tx-1,ty+16,16,3);
+  // Stem
+  cx.fillRect(tx+5,ty+10,4,8);
+  // Cup body
+  cx.beginPath();
+  cx.moveTo(tx+2,ty+10); cx.lineTo(tx,ty+2); cx.lineTo(tx+7,ty-2); cx.lineTo(tx+14,ty+2); cx.lineTo(tx+12,ty+10); cx.fill();
+  // Handles
+  cx.strokeStyle=GD; cx.lineWidth=2;
+  cx.beginPath(); cx.arc(tx+1,ty+5,4,Math.PI*0.5,Math.PI*1.5); cx.stroke();
+  cx.beginPath(); cx.arc(tx+13,ty+5,4,Math.PI*1.5,Math.PI*0.5); cx.stroke();
+  // Shine
+  cx.fillStyle='rgba(255,255,255,0.35)';
+  cx.beginPath(); cx.ellipse(tx+5,ty+3,2,3,-.3,0,6.28); cx.fill();
+
+  // Confetti burst around Messi (celebration!)
+  if(frame%4===0) {
+    const cols=['#74acdf','#fff','#ffd700','#ff4444'];
+    cx.fillStyle=cols[frame%4];
+    cx.fillRect(mx-5+Math.random()*55, my-80+Math.random()*30, 3, 3);
+  }
+}
+
 // ── Particles ───────────────────────────────────
 function spawnParts(x,y,color,n=14){
   for(let i=0;i<n;i++){
@@ -635,8 +712,8 @@ function spawnObs(){
   if(lv<=5)       type='rock';
   else if(lv<=10) type=r<0.3?'ninja':'rock';
   else if(lv<=18) type=r<0.3?'ptero':r<0.55?'ninja':'rock';
-  else            type=r<0.28?'ptero':r<0.50?'ninja':r<0.72?'mummy':'rock';
-  const groundTypes=['rock','ninja','mummy'];
+  else            type=r<0.22?'ptero':r<0.40?'ninja':r<0.58?'mummy':r<0.78?'rock':'messi';
+  const groundTypes=['rock','ninja','mummy','messi'];
   obs={type, x:W+30, y:groundTypes.includes(type)?GY:(GY-62), frozen:false};
   obsTimer=(80+Math.random()*55)|0;
 }
@@ -988,6 +1065,7 @@ function render(){
     else if(obs.type==='ptero')  drawPtero(obs.x-30,obs.y);
     else if(obs.type==='ninja')  drawNinja(obs.x-20,obs.y);
     else if(obs.type==='mummy')  drawMummy(obs.x-20,obs.y);
+    else if(obs.type==='messi')  drawMessi(obs.x-20,obs.y);
   }
   drawDino(DX, dino.y);
   drawParts();
