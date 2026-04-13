@@ -252,6 +252,17 @@ function getTables(l) {
   return [5,6,7,8,9,10];
 }
 function mkQ(l) {
+  if(gameMode==='subtraction'){
+    const maxA = lv<=3?30 : lv<=7?50 : lv<=14?80 : 100;
+    const a = (10 + Math.random()*(maxA-10+1))|0;
+    const b = (1  + Math.random()*(a-1))|0;   // b < a, result always >= 1
+    return { a, b, ans: a-b, op:'-' };
+  }
+  if(gameMode==='subtraction'){
+    const maxA=lv<=3?30:lv<=7?50:lv<=14?80:100;
+    document.getElementById('tinfo').textContent=`RESTAS: 10-${maxA} − menor · nivel ${lv}`;
+    return;
+  }
   if(gameMode==='division'){
     const t = customTables || getTables(l);
     const b = t[Math.random()*t.length|0];       // divisor (from table)
@@ -671,69 +682,70 @@ function drawStart(){
   drawBG();
   overlay(0.84);
 
-  // Dino bouncing left side
-  const bounce=Math.abs(Math.sin(frame*0.07))*8;
-  drawDino(68, GY-40-bounce);
+  // Title centered
+  cx.fillStyle='#1a6a1a'; cx.font="20px 'Press Start 2P',monospace";
+  cx.textAlign='center'; cx.fillText('DINO MATH',W/2+2,26); cx.textAlign='left';
+  cx.fillStyle='#3aff3a'; cx.font="20px 'Press Start 2P',monospace";
+  cx.textAlign='center'; cx.fillText('DINO MATH',W/2,24); cx.textAlign='left';
+  ct('¡Responde y haz saltar al dino!',42,6,'#ffd040');
 
-  // Title
-  cx.fillStyle='#1a6a1a'; cx.font="22px 'Press Start 2P',monospace";
-  cx.textAlign='center'; cx.fillText('DINO MATH',W/2+2,32); cx.textAlign='left';
-  cx.fillStyle='#3aff3a'; cx.font="22px 'Press Start 2P',monospace";
-  cx.textAlign='center'; cx.fillText('DINO MATH',W/2,30); cx.textAlign='left';
-  ct('¡Responde y haz saltar al dino!',48,6,'#ffd040');
-
-  // 3 subject buttons
+  // 4 subject cards
   const btns=[
-    { label:'MULTIPLICACIÓN', icon:'✖',  color:'#74acdf', stroke:'#3a7aff', bg:'#050d28', mode:'tables',   desc:'Tablas del 1 al 10' },
-    { label:'DIVISIÓN',       icon:'÷',  color:'#ff8844', stroke:'#cc4400', bg:'#200800', mode:'division',  desc:'Divide sin resto'   },
-    { label:'SUMAS',          icon:'➕', color:'#55dd55', stroke:'#228822', bg:'#031403', mode:'addition',  desc:'Dos cifras'         },
+    { label:'MULTIPLICA',  sign:'×', color:'#74acdf', stroke:'#3a7aff', bg:'#050d28', mode:'tables',       desc:'Tablas 1 al 10' },
+    { label:'DIVISIÓN',    sign:'÷', color:'#ff8844', stroke:'#cc5500', bg:'#1a0800', mode:'division',     desc:'Sin resto'      },
+    { label:'SUMAS',       sign:'+', color:'#55dd55', stroke:'#228822', bg:'#031403', mode:'addition',     desc:'1, 2 o 3 cifras'},
+    { label:'RESTAS',      sign:'−', color:'#ff6688', stroke:'#aa2244', bg:'#1a0010', mode:'subtraction',  desc:'Resultado ≥ 1'  },
   ];
-  const bw=178, bh=110, gap=13;
-  const totalW=btns.length*bw+(btns.length-1)*gap;
-  const bx0=(W-totalW)/2, by=62;
+  const bw=128, bh=116, gap=10;
+  const totalW=btns.length*bw+(btns.length-1)*gap;  // 542
+  const bx0=(W-totalW)/2, by=55;  // bx0 = 89
+
+  // Dino: drawn at x=18 so feet near left edge, clearly visible
+  const bounce=Math.abs(Math.sin(frame*0.07))*7;
+  drawDino(18, GY-38-bounce);
 
   btns.forEach((b,i)=>{
     const bx=bx0+i*(bw+gap);
     // Shadow
-    cx.fillStyle='rgba(0,0,0,0.3)';
+    cx.fillStyle='rgba(0,0,0,0.35)';
     cx.beginPath(); cx.roundRect(bx+3,by+3,bw,bh,10); cx.fill();
-    // Background
+    // Card bg
     cx.fillStyle=b.bg;
     cx.beginPath(); cx.roundRect(bx,by,bw,bh,10); cx.fill();
     cx.strokeStyle=b.stroke; cx.lineWidth=2.5;
     cx.beginPath(); cx.roundRect(bx,by,bw,bh,10); cx.stroke();
-    // Icon
-    cx.font='28px serif'; cx.textAlign='center';
-    cx.fillText(b.icon, bx+bw/2, by+36);
-    // Label
+    // Big sign
     cx.fillStyle=b.color;
-    cx.font="8px 'Press Start 2P',monospace";
-    cx.fillText(b.label, bx+bw/2, by+58);
+    cx.font="bold 36px 'Press Start 2P',monospace"; cx.textAlign='center';
+    cx.fillText(b.sign, bx+bw/2, by+46);
+    // Label
+    cx.font="7px 'Press Start 2P',monospace";
+    cx.fillText(b.label, bx+bw/2, by+64);
     // Desc
-    cx.fillStyle='#556677';
-    cx.font="6px 'Press Start 2P',monospace";
-    cx.fillText(b.desc, bx+bw/2, by+74);
-    // "30 niveles" tag
-    cx.fillStyle=b.stroke;
+    cx.fillStyle='rgba(255,255,255,0.35)';
     cx.font="5px 'Press Start 2P',monospace";
-    cx.fillText('30 niveles · 3 vidas', bx+bw/2, by+90);
+    cx.fillText(b.desc, bx+bw/2, by+78);
+    // Tag bottom
+    cx.fillStyle=b.stroke;
+    cx.fillText('30 niveles · 3 vidas', bx+bw/2, by+bh-8);
     cx.textAlign='left';
   });
 
-  if((frame/32|0)%2===0) ct('CLICK en una materia para empezar',282,6,'#778899');
+  if((frame/32|0)%2===0) ct('CLICK en una materia para empezar',284,6,'#778899');
 }
 
 function handleStart(mx,my){
-  const btns=['tables','division','addition'];
-  const bw=178, bh=110, gap=13;
-  const totalW=3*bw+2*gap;
-  const bx0=(W-totalW)/2, by=62;
-  btns.forEach((mode,i)=>{
+  const modes=['tables','division','addition','subtraction'];
+  const bw=128, bh=116, gap=10;
+  const totalW=4*bw+3*gap;
+  const bx0=(W-totalW)/2, by=55;
+  modes.forEach((mode,i)=>{
     const bx=bx0+i*(bw+gap);
     if(mx>=bx&&mx<=bx+bw&&my>=by&&my<=by+bh){
-      if(mode==='tables')   { gameMode='tables';   gs='levelSelect'; }
-      if(mode==='division') { gameMode='division'; gs='divSelect'; }
-      if(mode==='addition') { gameMode='addition'; gs='addSelect'; }
+      if(mode==='tables')      { gameMode='tables';      gs='levelSelect'; }
+      if(mode==='division')    { gameMode='division';    gs='divSelect'; }
+      if(mode==='addition')    { gameMode='addition';    gs='addSelect'; }
+      if(mode==='subtraction') { gameMode='subtraction'; gs='subSelect'; }
     }
   });
 }
@@ -902,7 +914,7 @@ function update(){
     }
     if(dino.timer>0) dino.timer--;
     else { gs='levelDone'; correct=0; levelWrong=0; if(customTables) lv=Math.min(lv+1,4); else lv++; }
-  } else if(gs==='start'||gs==='levelSelect'||gs==='tableSelect'||gs==='addSelect'||gs==='divSelect'||gs==='levelDone'||gs==='gameOver'||gs==='win'){
+  } else if(gs==='start'||gs==='levelSelect'||gs==='tableSelect'||gs==='addSelect'||gs==='divSelect'||gs==='subSelect'||gs==='levelDone'||gs==='gameOver'||gs==='win'){
     scroll+=0.5;
   }
 }
@@ -1184,6 +1196,67 @@ function startDivision(){
   updateTableInfo();
 }
 
+
+// ── Subtraction Mode Select ──────────────────────────────────────────
+function drawSubSelect(){
+  drawBG();
+  overlay();
+
+  ct('MODO RESTAS',22,14,'#ff6688');
+  ct('Resta sin números negativos',40,6,'#ffd040');
+
+  const rows=[
+    ['NVL  1 - 3',  '10-30 − 1-29', 'resultado ≥ 1'],
+    ['NVL  4 - 7',  '10-50 − 1-49', 'resultado ≥ 1'],
+    ['NVL  8 - 14', '10-80 − 1-79', 'resultado ≥ 1'],
+    ['NVL 15+',     '10-100 − 1-99','resultado ≥ 1'],
+  ];
+  const rh=28, rtop=62, rw=560, rx=(W-rw)/2;
+  rows.forEach((row,i)=>{
+    const ry=rtop+i*rh;
+    cx.fillStyle=i%2===0?'rgba(60,0,20,0.3)':'rgba(40,0,15,0.2)';
+    cx.fillRect(rx,ry,rw,rh-2);
+    cx.fillStyle='#ffd040'; cx.font="7px 'Press Start 2P',monospace"; cx.textAlign='left';
+    cx.fillText(row[0], rx+10,  ry+rh/2+3);
+    cx.fillStyle='#ff99aa';
+    cx.fillText(row[1], rx+180, ry+rh/2+3);
+    cx.fillStyle='#aaaaaa';
+    cx.fillText(row[2], rx+390, ry+rh/2+3);
+    cx.textAlign='left';
+  });
+
+  ct('El resultado siempre es mayor que cero',175,6,'#556677');
+
+  const pbw=200,pbh=28,pbx=(W-200)/2,pby=198;
+  cx.fillStyle='#1a0010';
+  cx.beginPath(); cx.roundRect(pbx,pby,pbw,pbh,7); cx.fill();
+  cx.strokeStyle='#ff4466'; cx.lineWidth=1.5;
+  cx.beginPath(); cx.roundRect(pbx,pby,pbw,pbh,7); cx.stroke();
+  cx.textAlign='center'; cx.fillStyle='#ffd040';
+  cx.font="10px 'Press Start 2P',monospace";
+  cx.fillText('▶ JUGAR RESTAS',W/2,pby+pbh/2+4);
+  cx.textAlign='left';
+
+  if((frame/28|0)%2===0) ct('ESC = volver',282,6,'#334455');
+}
+
+function handleSubSelect(mx,my){
+  const pbw=200,pbh=28,pbx=(W-200)/2,pby=198;
+  if(mx>=pbx&&mx<=pbx+pbw&&my>=pby&&my<=pby+pbh){ startSubtraction(); }
+}
+
+function startSubtraction(){
+  gameMode='subtraction'; customTables=null;
+  lv=1; lives=3; score=0; correct=0; levelWrong=0; lastWrong=0;
+  obs=null; obsTimer=100; frame=0; scroll=0; parts=[];
+  dino={y:GY,vy:0,jumping:false,state:'run',timer:0};
+  if(qTimer){ clearTimeout(qTimer); qTimer=null; }
+  lifeLostThisQ=false;
+  document.getElementById('qi').style.display='none';
+  gs='playing';
+  updateTableInfo();
+}
+
 // ── Addition Mode Select ─────────────────────────────────────────────
 function drawAddSelect(){
   drawBG();
@@ -1292,6 +1365,7 @@ function render(){
   if(gs==='levelSelect') { drawLevelSelect(); return; }
   if(gs==='tableSelect') { drawTableSelect(); return; }
   if(gs==='divSelect')   { drawDivSelect(); return; }
+  if(gs==='subSelect')   { drawSubSelect(); return; }
   if(gs==='addSelect')   { drawAddSelect(); return; }
   if(gs==='levelDone')   { drawLevelDone(); return; }
   if(gs==='gameOver')    { drawGameOver(); return; }
@@ -1360,6 +1434,17 @@ function nextLevel(){
 }
 
 function updateTableInfo(){
+  if(gameMode==='subtraction'){
+    const maxA = lv<=3?30 : lv<=7?50 : lv<=14?80 : 100;
+    const a = (10 + Math.random()*(maxA-10+1))|0;
+    const b = (1  + Math.random()*(a-1))|0;   // b < a, result always >= 1
+    return { a, b, ans: a-b, op:'-' };
+  }
+  if(gameMode==='subtraction'){
+    const maxA=lv<=3?30:lv<=7?50:lv<=14?80:100;
+    document.getElementById('tinfo').textContent=`RESTAS: 10-${maxA} − menor · nivel ${lv}`;
+    return;
+  }
   if(gameMode==='division'){
     const t=getTables(lv);
     document.getElementById('tinfo').textContent='DIVISIÓN: tablas '+t.map(n=>n+'×').join(' ');
@@ -1387,6 +1472,7 @@ cv.addEventListener('click', e=>{
   else if(gs==='tableSelect'){ handleTableSelect(mx,my); }
   else if(gs==='addSelect'){   handleAddSelect(mx,my); }
   else if(gs==='divSelect'){   handleDivSelect(mx,my); }
+  else if(gs==='subSelect'){   handleSubSelect(mx,my); }
   else { action(); }
 });
 
@@ -1402,6 +1488,7 @@ cv.addEventListener('touchend', e=>{
   else if(gs==='tableSelect'){ handleTableSelect(mx,my); }
   else if(gs==='addSelect'){   handleAddSelect(mx,my); }
   else if(gs==='divSelect'){   handleDivSelect(mx,my); }
+  else if(gs==='subSelect'){   handleSubSelect(mx,my); }
   else { action(); }
 },{ passive:false });
 document.addEventListener('keydown', e=>{
@@ -1416,6 +1503,7 @@ document.addEventListener('keydown', e=>{
     else if(gs==='tableSelect')                  gs='levelSelect';
     else if(gs==='addSelect')                    gs='start';
     else if(gs==='divSelect')                    gs='start';
+    else if(gs==='subSelect')                    gs='start';
     else if(gs==='playing'||gs==='question'||gs==='wait'||gs==='levelDone'){
       customTables=null; gameMode='tables';
       if(qTimer){ clearTimeout(qTimer); qTimer=null; }
