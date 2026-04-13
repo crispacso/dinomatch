@@ -255,7 +255,7 @@ function mkQ(l) {
   const b = 1 + (Math.random()*10|0);
   return { a, b, ans: a * b };
 }
-function spd(l) { return 3.2 + (l-1)*0.13; }
+function spd(l) { return 4.5 + (l-1)*0.18; }
 
 // ── Drawing helpers ─────────────────────────────
 function rr(x, y, w, h, r) { cx.beginPath(); cx.roundRect(x,y,w,h,r); }
@@ -450,6 +450,100 @@ function drawPtero(px, py) {
   cx.beginPath(); cx.arc(px+60,py-20+fl,3,0,6.28); cx.fill();
 }
 
+
+// ── Dino Ninja ──────────────────────────────────
+function drawNinja(nx, ny) {
+  const BK='#111', PU='#4a1a6a', LP='#7a2aaa', WH='#eee', RD='#cc2020', YL='#ffd040';
+  // Shadow
+  cx.fillStyle='rgba(0,0,0,0.18)';
+  cx.beginPath(); cx.ellipse(nx+20,ny+2,22,5,0,0,6.28); cx.fill();
+  // Back leg
+  cx.fillStyle=BK; cx.fillRect(nx+14,ny-16,8,16); cx.fillRect(nx+11,ny-3,12,3);
+  // Body
+  cx.fillStyle=PU; rr(nx+2,ny-40,30,20,6); cx.fill();
+  // Belt
+  cx.fillStyle=RD; cx.fillRect(nx+2,ny-24,30,4);
+  cx.fillStyle=YL; cx.fillRect(nx+14,ny-25,6,6); // belt buckle
+  // Front leg
+  cx.fillStyle=BK; cx.fillRect(nx+2,ny-16,8,16); cx.fillRect(nx-1,ny-3,12,3);
+  // Neck
+  cx.fillStyle=LP; cx.fillRect(nx+17,ny-52,10,14);
+  // Head
+  cx.fillStyle=BK; rr(nx+10,ny-68,26,18,[6,6,3,3]); cx.fill();
+  // Mask slit (eyes visible)
+  cx.fillStyle=RD; cx.fillRect(nx+14,ny-60,18,5);
+  cx.fillStyle=WH; cx.beginPath(); cx.arc(nx+19,ny-58,2.5,0,6.28); cx.fill();
+  cx.fillStyle=WH; cx.beginPath(); cx.arc(nx+27,ny-58,2.5,0,6.28); cx.fill();
+  cx.fillStyle=BK; cx.beginPath(); cx.arc(nx+20,ny-58,1.2,0,6.28); cx.fill();
+  cx.fillStyle=BK; cx.beginPath(); cx.arc(nx+28,ny-58,1.2,0,6.28); cx.fill();
+  // Headband
+  cx.fillStyle=RD; cx.fillRect(nx+10,ny-70,26,5);
+  // Headband tails
+  cx.fillStyle=RD;
+  cx.beginPath(); cx.moveTo(nx+10,ny-66); cx.lineTo(nx+3,ny-60); cx.lineTo(nx+6,ny-56); cx.lineTo(nx+12,ny-62); cx.fill();
+  // Arm holding katana
+  cx.fillStyle=LP; rr(nx+22,ny-42,8,12,3); cx.fill();
+  // Katana blade (diagonal, pointing forward-up)
+  cx.strokeStyle='#c8e8ff'; cx.lineWidth=2.5;
+  cx.beginPath(); cx.moveTo(nx+28,ny-42); cx.lineTo(nx+52,ny-68); cx.stroke();
+  // Katana guard
+  cx.strokeStyle=YL; cx.lineWidth=3;
+  cx.beginPath(); cx.moveTo(nx+24,ny-46); cx.lineTo(nx+34,ny-42); cx.stroke();
+  // Katana handle
+  cx.strokeStyle='#6a3010'; cx.lineWidth=4;
+  cx.beginPath(); cx.moveTo(nx+18,ny-38); cx.lineTo(nx+26,ny-46); cx.stroke();
+}
+
+// ── Dino Momia ───────────────────────────────────
+function drawMummy(mx2, my2) {
+  const WH='#ddd8c4', BG='#c8c0a0', DK='#8a8060', GR='#3a5a30', RD='#cc3030';
+  const bob = Math.sin(frame*0.12)*4;
+  // Shadow
+  cx.fillStyle='rgba(0,0,0,0.18)';
+  cx.beginPath(); cx.ellipse(mx2+20,my2+2,22,5,0,0,6.28); cx.fill();
+  // Back leg + bandages
+  cx.fillStyle=BG; cx.fillRect(mx2+14,my2-18+bob,8,18);
+  cx.fillStyle=WH; cx.lineWidth=2;
+  [my2-16+bob, my2-11+bob, my2-6+bob].forEach(y => { cx.beginPath(); cx.moveTo(mx2+13,y); cx.lineTo(mx2+23,y+2); cx.stroke(); });
+  cx.fillStyle=BG; cx.fillRect(mx2+11,my2-3,12,3);
+  // Body
+  cx.fillStyle=BG; rr(mx2+2,my2-42,30,22,5); cx.fill();
+  // Body bandages
+  cx.strokeStyle=WH; cx.lineWidth=2;
+  cx.beginPath(); cx.moveTo(mx2+2,my2-36); cx.lineTo(mx2+32,my2-38); cx.stroke();
+  cx.beginPath(); cx.moveTo(mx2+2,my2-30); cx.lineTo(mx2+32,my2-32); cx.stroke();
+  cx.beginPath(); cx.moveTo(mx2+2,my2-24); cx.lineTo(mx2+32,my2-26); cx.stroke();
+  // Front leg
+  cx.fillStyle=BG; cx.fillRect(mx2+2,my2-18+bob,8,18);
+  cx.fillStyle=WH;
+  [my2-16+bob, my2-11+bob, my2-6+bob].forEach(y => { cx.beginPath(); cx.moveTo(mx2+1,y); cx.lineTo(mx2+11,y+2); cx.stroke(); });
+  cx.fillStyle=BG; cx.fillRect(mx2-1,my2-3,12,3);
+  // Neck
+  cx.fillStyle=BG; cx.fillRect(mx2+17,my2-54,10,14);
+  // Head
+  cx.fillStyle=BG; rr(mx2+10,my2-70,26,18,[5,5,3,3]); cx.fill();
+  // Head bandages
+  cx.strokeStyle=WH; cx.lineWidth=2.5;
+  cx.beginPath(); cx.moveTo(mx2+10,my2-64); cx.lineTo(mx2+36,my2-65); cx.stroke();
+  cx.beginPath(); cx.moveTo(mx2+10,my2-57); cx.lineTo(mx2+36,my2-58); cx.stroke();
+  // Eyes — glowing green
+  cx.fillStyle=GR; cx.beginPath(); cx.arc(mx2+19,my2-62,4,0,6.28); cx.fill();
+  cx.fillStyle=GR; cx.beginPath(); cx.arc(mx2+28,my2-62,4,0,6.28); cx.fill();
+  cx.fillStyle='#88ff88'; cx.beginPath(); cx.arc(mx2+19,my2-62,2,0,6.28); cx.fill();
+  cx.fillStyle='#88ff88'; cx.beginPath(); cx.arc(mx2+28,my2-62,2,0,6.28); cx.fill();
+  // Loose bandage dangling from head
+  cx.strokeStyle=WH; cx.lineWidth=2;
+  const dangle = Math.sin(frame*0.18)*6;
+  cx.beginPath(); cx.moveTo(mx2+10,my2-66); cx.quadraticCurveTo(mx2+2,my2-55+dangle,mx2+4,my2-44); cx.stroke();
+  // Outstretched arms (classic mummy pose)
+  cx.fillStyle=BG;
+  rr(mx2+28,my2-46,8,14,3); cx.fill(); // right arm
+  cx.strokeStyle=WH; cx.lineWidth=2;
+  cx.beginPath(); cx.moveTo(mx2+28,my2-44); cx.lineTo(mx2+36,my2-42); cx.stroke();
+  cx.beginPath(); cx.moveTo(mx2+28,my2-38); cx.lineTo(mx2+36,my2-36); cx.stroke();
+  rr(mx2+36,my2-48,10,4,2); cx.fill(); // extended hand
+}
+
 // ── Particles ───────────────────────────────────
 function spawnParts(x,y,color,n=14){
   for(let i=0;i<n;i++){
@@ -536,8 +630,14 @@ function drawWin(){
 
 // ── Logic ───────────────────────────────────────
 function spawnObs(){
-  const type = lv>10 && Math.random()<0.42 ? 'ptero' : 'rock';
-  obs={type, x:W+30, y:type==='ptero'?GY-62:GY, frozen:false};
+  let type;
+  const r=Math.random();
+  if(lv<=5)       type='rock';
+  else if(lv<=10) type=r<0.3?'ninja':'rock';
+  else if(lv<=18) type=r<0.3?'ptero':r<0.55?'ninja':'rock';
+  else            type=r<0.28?'ptero':r<0.50?'ninja':r<0.72?'mummy':'rock';
+  const groundTypes=['rock','ninja','mummy'];
+  obs={type, x:W+30, y:groundTypes.includes(type)?GY:(GY-62), frozen:false};
   obsTimer=(80+Math.random()*55)|0;
 }
 
@@ -883,7 +983,12 @@ function render(){
   if(gs==='win')         { drawWin(); return; }
 
   drawBG();
-  if(obs){ if(obs.type==='rock') drawRock(obs.x-21); else drawPtero(obs.x-30,obs.y); }
+  if(obs){
+    if(obs.type==='rock')        drawRock(obs.x-21);
+    else if(obs.type==='ptero')  drawPtero(obs.x-30,obs.y);
+    else if(obs.type==='ninja')  drawNinja(obs.x-20,obs.y);
+    else if(obs.type==='mummy')  drawMummy(obs.x-20,obs.y);
+  }
   drawDino(DX, dino.y);
   drawParts();
   drawHUD();
