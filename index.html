@@ -11,9 +11,9 @@
   body {
     background: #050510;
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     justify-content: center;
-    min-height: 100vh;
+    min-height: 100svh;
     padding: 20px 10px;
     font-family: 'Press Start 2P', 'Courier New', monospace;
     /* Evita zoom en doble tap en iOS */
@@ -217,6 +217,8 @@ let obs = null;
 let obsTimer = 100;
 let q = null, qWrong = 0;
 let parts = [];
+let customTables = null; // null=modo normal, array=modo práctica
+let selectedTables = [1,2,3,4,5,6,7,8,9,10];
 
 // ── Mountains (deterministic) ───────────────────
 function genMtn(n, seed, minW, maxW, minH, maxH) {
@@ -248,7 +250,7 @@ function getTables(l) {
   return [5,6,7,8,9,10];
 }
 function mkQ(l) {
-  const t = getTables(l);
+  const t = customTables || getTables(l);
   const a = t[Math.random()*t.length|0];
   const b = 1 + (Math.random()*10|0);
   return { a, b, ans: a * b };
@@ -646,8 +648,8 @@ function update(){
       }
     }
     if(dino.timer>0) dino.timer--;
-    else { gs='levelDone'; correct=0; levelWrong=0; lv++; }
-  } else if(gs==='start'||gs==='levelSelect'||gs==='levelDone'||gs==='gameOver'||gs==='win'){
+    else { gs='levelDone'; correct=0; levelWrong=0; if(customTables) lv=Math.min(lv+1,4); else lv++; }
+  } else if(gs==='start'||gs==='levelSelect'||gs==='tableSelect'||gs==='levelDone'||gs==='gameOver'||gs==='win'){
     scroll+=0.5;
   }
 }
@@ -709,6 +711,18 @@ function drawLevelSelect(){
   if((frame/30|0)%2===0){
     ct('CLICK en un nivel  ·  ESPACIO = desde nivel 1',292,6,'#556677');
   }
+
+  // ── Botón Modo Práctica ──
+  const _pbw=180, _pbh=22, _pbx=(W-180)/2, _pby=H-34;
+  cx.fillStyle='#0d0d28';
+  cx.beginPath(); cx.roundRect(_pbx,_pby,_pbw,_pbh,5); cx.fill();
+  cx.strokeStyle='#4444aa'; cx.lineWidth=1.5;
+  cx.beginPath(); cx.roundRect(_pbx,_pby,_pbw,_pbh,5); cx.stroke();
+  cx.textAlign='center';
+  cx.fillStyle='#8899ff';
+  cx.font="7px 'Press Start 2P',monospace";
+  cx.fillText('★ MODO PRÁCTICA LIBRE',W/2,_pby+_pbh/2+3);
+  cx.textAlign='left';
 }
 
 function handleLevelSelect(mx,my){
@@ -720,10 +734,134 @@ function handleLevelSelect(mx,my){
     const by=56+row*(bh+vg);
     if(mx>=bx&&mx<=bx+bw&&my>=by&&my<=by+bh){ startFrom(i+1); return; }
   }
+  // Botón práctica
+  const _pbw=180,_pbh=22,_pbx=(W-180)/2,_pby=H-34;
+  if(mx>=_pbx&&mx<=_pbx+_pbw&&my>=_pby&&my<=_pby+_pbh){ gs='tableSelect'; }
 }
 
 function startFrom(startLv){
+  customTables=null;
   lv=startLv; lives=3; score=0; correct=0; levelWrong=0; lastWrong=0;
+  obs=null; obsTimer=100; frame=0; scroll=0; parts=[];
+  dino={y:GY,vy:0,jumping:false,state:'run',timer:0};
+  if(qTimer){ clearTimeout(qTimer); qTimer=null; }
+  lifeLostThisQ=false;
+  document.getElementById('qi').style.display='none';
+  gs='playing';
+  updateTableInfo();
+}
+
+
+// ── Table Selector ───────────────────────────────
+const TS={bw:96,bh:38,hg:12,vg:10,cols:5};
+
+function drawTableSelect(){
+  drawBG();
+  overlay();
+
+  ct('MODO PRÁCTICA',20,12,'#8899ff');
+  ct('Elige las tablas que quieres practicar',36,6,'#ffd040');
+
+  const {bw,bh,hg,vg,cols}=TS;
+  const gw=cols*bw+(cols-1)*hg;
+  const gx=(W-gw)/2;
+
+  for(let i=0;i<10;i++){
+    const row=Math.floor(i/cols), col=i%cols;
+    const tNum=i+1;
+    const sel=selectedTables.includes(tNum);
+    const bx=gx+col*(bw+hg);
+    const by=50+row*(bh+vg);
+
+    cx.fillStyle=sel?'#0d2a0d':'#0e0e1c';
+    cx.beginPath(); cx.roundRect(bx,by,bw,bh,7); cx.fill();
+    cx.strokeStyle=sel?'#3aff3a':'#2a2a4a';
+    cx.lineWidth=sel?2:1;
+    cx.beginPath(); cx.roundRect(bx,by,bw,bh,7); cx.stroke();
+
+    cx.textAlign='center';
+    cx.fillStyle=sel?'#ffd040':'#3a3a5a';
+    cx.font="10px 'Press Start 2P',monospace";
+    cx.fillText(`× ${tNum}`,bx+bw/2,by+bh/2-2);
+    if(sel){
+      cx.fillStyle='#3aaa3a';
+      cx.font="5px 'Press Start 2P',monospace";
+      cx.fillText('✓',bx+bw/2,by+bh/2+10);
+    }
+    cx.textAlign='left';
+  }
+
+  // Botón seleccionar todas / ninguna
+  const abw=110,abh=18,abx=gx,aby=168;
+  cx.fillStyle='#0e0e20'; cx.beginPath(); cx.roundRect(abx,aby,abw,abh,4); cx.fill();
+  cx.strokeStyle='#2a2a5a'; cx.lineWidth=1;
+  cx.beginPath(); cx.roundRect(abx,aby,abw,abh,4); cx.stroke();
+  cx.textAlign='center'; cx.fillStyle='#6666aa';
+  cx.font="5px 'Press Start 2P',monospace";
+  cx.fillText('TODAS',abx+abw/2,aby+abh/2+2);
+  cx.textAlign='left';
+
+  const nbw=110,nbh=18,nbx=gx+abw+12,nby=168;
+  cx.fillStyle='#0e0e20'; cx.beginPath(); cx.roundRect(nbx,nby,nbw,nbh,4); cx.fill();
+  cx.strokeStyle='#2a2a5a'; cx.lineWidth=1;
+  cx.beginPath(); cx.roundRect(nbx,nby,nbw,nbh,4); cx.stroke();
+  cx.textAlign='center'; cx.fillStyle='#6666aa';
+  cx.font="5px 'Press Start 2P',monospace";
+  cx.fillText('NINGUNA',nbx+nbw/2,nby+nbh/2+2);
+  cx.textAlign='left';
+
+  // Botón jugar
+  const canPlay=selectedTables.length>0;
+  const pbw=200,pbh=26,pbx=(W-200)/2,pby=200;
+  cx.fillStyle=canPlay?'#112a11':'#151515';
+  cx.beginPath(); cx.roundRect(pbx,pby,pbw,pbh,7); cx.fill();
+  cx.strokeStyle=canPlay?'#3aff3a':'#333';
+  cx.lineWidth=1.5;
+  cx.beginPath(); cx.roundRect(pbx,pby,pbw,pbh,7); cx.stroke();
+  cx.textAlign='center';
+  cx.fillStyle=canPlay?'#ffd040':'#333';
+  cx.font="10px 'Press Start 2P',monospace";
+  cx.fillText(canPlay?`▶ JUGAR (${selectedTables.length} tabla${selectedTables.length>1?'s':''})`:'Elige al menos una',W/2,pby+pbh/2+4);
+  cx.textAlign='left';
+
+  if((frame/28|0)%2===0) ct('ESC = volver',282,6,'#334455');
+}
+
+function handleTableSelect(mx,my){
+  const {bw,bh,hg,vg,cols}=TS;
+  const gw=cols*bw+(cols-1)*hg;
+  const gx=(W-gw)/2;
+
+  for(let i=0;i<10;i++){
+    const row=Math.floor(i/cols), col=i%cols;
+    const bx=gx+col*(bw+hg), by=50+row*(bh+vg);
+    if(mx>=bx&&mx<=bx+bw&&my>=by&&my<=by+bh){
+      const t=i+1, idx=selectedTables.indexOf(t);
+      if(idx>=0) selectedTables.splice(idx,1); else selectedTables.push(t);
+      selectedTables.sort((a,b)=>a-b);
+      return;
+    }
+  }
+  // Todas
+  const abw=110,abh=18,abx=gx,aby=168;
+  if(mx>=abx&&mx<=abx+abw&&my>=aby&&my<=aby+abh){
+    selectedTables=[1,2,3,4,5,6,7,8,9,10]; return;
+  }
+  // Ninguna
+  const nbw=110,nbh=18,nbx=gx+abw+12,nby=168;
+  if(mx>=nbx&&mx<=nbx+nbw&&my>=nby&&my<=nby+nbh){
+    selectedTables=[]; return;
+  }
+  // Jugar
+  if(selectedTables.length>0){
+    const pbw=200,pbh=26,pbx=(W-200)/2,pby=200;
+    if(mx>=pbx&&mx<=pbx+pbw&&my>=pby&&my<=pby+pbh){ startPractice(); }
+  }
+}
+
+function startPractice(){
+  customTables=[...selectedTables];
+  lv=1; lives=3; score=0; correct=0; levelWrong=0; lastWrong=0;
   obs=null; obsTimer=100; frame=0; scroll=0; parts=[];
   dino={y:GY,vy:0,jumping:false,state:'run',timer:0};
   if(qTimer){ clearTimeout(qTimer); qTimer=null; }
@@ -739,6 +877,7 @@ function render(){
 
   if(gs==='start')       { drawStart(); return; }
   if(gs==='levelSelect') { drawLevelSelect(); return; }
+  if(gs==='tableSelect') { drawTableSelect(); return; }
   if(gs==='levelDone')   { drawLevelDone(); return; }
   if(gs==='gameOver')    { drawGameOver(); return; }
   if(gs==='win')         { drawWin(); return; }
@@ -775,7 +914,7 @@ function playSound(ok){
 function action(){
   if(gs==='start')    { gs='levelSelect'; lv=1; return; }
   if(gs==='levelDone'){ nextLevel(); return; }
-  if(gs==='gameOver'||gs==='win') { gs='levelSelect'; return; }
+  if(gs==='gameOver'||gs==='win') { customTables=null; gs='levelSelect'; return; }
 }
 
 function startGame(){
@@ -800,33 +939,33 @@ function nextLevel(){
 }
 
 function updateTableInfo(){
-  const t=getTables(lv);
-  document.getElementById('tinfo').textContent='Tablas activas: '+t.map(n=>n+'×').join(' ');
+  if(customTables){
+    document.getElementById('tinfo').textContent='PRÁCTICA: '+customTables.map(n=>n+'×').join(' ');
+  } else {
+    const t=getTables(lv);
+    document.getElementById('tinfo').textContent='Tablas activas: '+t.map(n=>n+'×').join(' ');
+  }
 }
 
 cv.addEventListener('click', e=>{
-  if(gs==='levelSelect'){
-    const rect=cv.getBoundingClientRect();
-    const mx=(e.clientX-rect.left)*(W/rect.width);
-    const my=(e.clientY-rect.top)*(H/rect.height);
-    handleLevelSelect(mx,my);
-  } else {
-    action();
-  }
+  const rect=cv.getBoundingClientRect();
+  const mx=(e.clientX-rect.left)*(W/rect.width);
+  const my=(e.clientY-rect.top)*(H/rect.height);
+  if(gs==='levelSelect'){ handleLevelSelect(mx,my); }
+  else if(gs==='tableSelect'){ handleTableSelect(mx,my); }
+  else { action(); }
 });
 
 // ── Touch: mapea coordenadas táctiles igual que click ──
 cv.addEventListener('touchend', e=>{
   e.preventDefault();
   const touch=e.changedTouches[0];
-  if(gs==='levelSelect'){
-    const rect=cv.getBoundingClientRect();
-    const mx=(touch.clientX-rect.left)*(W/rect.width);
-    const my=(touch.clientY-rect.top)*(H/rect.height);
-    handleLevelSelect(mx,my);
-  } else {
-    action();
-  }
+  const rect=cv.getBoundingClientRect();
+  const mx=(touch.clientX-rect.left)*(W/rect.width);
+  const my=(touch.clientY-rect.top)*(H/rect.height);
+  if(gs==='levelSelect'){ handleLevelSelect(mx,my); }
+  else if(gs==='tableSelect'){ handleTableSelect(mx,my); }
+  else { action(); }
 },{ passive:false });
 document.addEventListener('keydown', e=>{
   if(e.code==='Space'){
@@ -835,6 +974,7 @@ document.addEventListener('keydown', e=>{
     else action();
   }
   if(e.code==='Escape'&&gs==='levelSelect') gs='start';
+  if(e.code==='Escape'&&gs==='tableSelect') gs='levelSelect';
 });
 document.getElementById('qok').addEventListener('click', checkAns);
 document.getElementById('qin').addEventListener('keydown', e=>{
