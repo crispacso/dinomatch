@@ -973,8 +973,19 @@ document.addEventListener('keydown', e=>{
     if(gs==='levelSelect') startFrom(1);
     else action();
   }
-  if(e.code==='Escape'&&gs==='levelSelect') gs='start';
-  if(e.code==='Escape'&&gs==='tableSelect') gs='levelSelect';
+  if(e.code==='Escape'){
+    if(gs==='levelSelect')                       gs='start';
+    else if(gs==='tableSelect')                  gs='levelSelect';
+    else if(gs==='playing'||gs==='question'||gs==='wait'||gs==='levelDone'){
+      customTables=null;
+      if(qTimer){ clearTimeout(qTimer); qTimer=null; }
+      document.getElementById('qi').style.display='none';
+      gs='levelSelect';
+    }
+    else if(gs==='gameOver'||gs==='win'){
+      customTables=null; gs='levelSelect';
+    }
+  }
 });
 document.getElementById('qok').addEventListener('click', checkAns);
 document.getElementById('qin').addEventListener('keydown', e=>{
