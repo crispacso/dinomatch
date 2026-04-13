@@ -188,7 +188,7 @@
         <div class="dot" id="d2"></div>
       </div>
       <div id="qrow">
-        <input type="text" inputmode="numeric" pattern="[0-9]*" id="qin" placeholder="?" autocomplete="off" maxlength="3">
+        <input type="text" inputmode="numeric" pattern="[0-9]*" id="qin" placeholder="?" autocomplete="off" maxlength="4">
         <button id="qok">✓ OK</button>
       </div>
       <div id="qhint"></div>
@@ -219,7 +219,8 @@ let q = null, qWrong = 0;
 let parts = [];
 let customTables = null; // null=modo normal, array=modo práctica
 let selectedTables = [1,2,3,4,5,6,7,8,9,10];
-let gameMode = 'tables'; // 'tables' | 'addition'
+let gameMode = 'tables'; // 'tables' | 'addition' | 'division'
+let addDigits = 2;         // 1 | 2 | 3 — cifras modo sumas
 
 // ── Mountains (deterministic) ───────────────────
 function genMtn(n, seed, minW, maxW, minH, maxH) {
@@ -251,12 +252,25 @@ function getTables(l) {
   return [5,6,7,8,9,10];
 }
 function mkQ(l) {
+  if(gameMode==='division'){
+    const t = customTables || getTables(l);
+    const b = t[Math.random()*t.length|0];       // divisor (from table)
+    const c = 1 + (Math.random()*10|0);           // multiplier 1-10
+    const a = b * c;                              // dividend (always exact)
+    return { a, b, ans: c, op:'÷' };
+  }
   if(gameMode==='addition'){
-    // Two-digit addition, difficulty grows with level
-    // lv 1-3: 10-29 + 10-29  | lv 4-7: 10-49 + 10-49
-    // lv 8-14: 10-79 + 10-79 | lv 15+: 10-99 + 10-99
-    const maxA = l<=3?29 : l<=7?49 : l<=14?79 : 99;
-    const minA = 10;
+    let minA, maxA;
+    if(addDigits===1){
+      // 1 cifra: escala de 1-5 a 1-9
+      maxA = l<=5 ? 5 : 9;  minA = 1;
+    } else if(addDigits===2){
+      // 2 cifras: escala de 10-29 a 10-99
+      maxA = l<=3?29 : l<=7?49 : l<=14?79 : 99;  minA = 10;
+    } else {
+      // 3 cifras: escala de 100-299 a 100-999
+      maxA = l<=5?299 : l<=15?599 : 999;  minA = 100;
+    }
     const a = (minA + Math.random()*(maxA-minA+1))|0;
     const b = (minA + Math.random()*(maxA-minA+1))|0;
     return { a, b, ans: a+b, op:'+' };
@@ -655,22 +669,73 @@ function overlay(a=0.88){ cx.fillStyle=`rgba(0,0,16,${a})`; cx.fillRect(0,0,W,H-
 
 function drawStart(){
   drawBG();
-  overlay();
-  const bounce=Math.abs(Math.sin(frame*0.05))*10;
-  drawDino(W/2-20, GY-45-bounce);
+  overlay(0.84);
 
-  ct('DINO MATH',H/2-68,26,'#3aff3a');
-  cx.fillStyle='#1a6a1a'; cx.font="26px 'Press Start 2P',monospace";
-  cx.textAlign='center'; cx.fillText('DINO MATH',W/2+2,H/2-66); cx.textAlign='left';
-  cx.fillStyle='#3aff3a'; cx.font="26px 'Press Start 2P',monospace";
-  cx.textAlign='center'; cx.fillText('DINO MATH',W/2,H/2-68); cx.textAlign='left';
+  // Dino bouncing left side
+  const bounce=Math.abs(Math.sin(frame*0.07))*8;
+  drawDino(68, GY-40-bounce);
 
-  ct('Responde las tablas pitagoricas',H/2-28,8,'#ffd040');
-  ct('para que el dino salte!',H/2-12,8,'#ffd040');
-  ct('30 niveles · Tablas del 1 al 10',H/2+12,7,'#5a8a8a');
-  ct('❤❤❤ 3 vidas · 3 aciertos/nivel',H/2+26,7,'#5a8a8a');
+  // Title
+  cx.fillStyle='#1a6a1a'; cx.font="22px 'Press Start 2P',monospace";
+  cx.textAlign='center'; cx.fillText('DINO MATH',W/2+2,32); cx.textAlign='left';
+  cx.fillStyle='#3aff3a'; cx.font="22px 'Press Start 2P',monospace";
+  cx.textAlign='center'; cx.fillText('DINO MATH',W/2,30); cx.textAlign='left';
+  ct('¡Responde y haz saltar al dino!',48,6,'#ffd040');
 
-  if((frame/32|0)%2===0) ct('[ ESPACIO o CLICK para empezar ]',H/2+58,8,'#ffffff');
+  // 3 subject buttons
+  const btns=[
+    { label:'MULTIPLICACIÓN', icon:'✖',  color:'#74acdf', stroke:'#3a7aff', bg:'#050d28', mode:'tables',   desc:'Tablas del 1 al 10' },
+    { label:'DIVISIÓN',       icon:'÷',  color:'#ff8844', stroke:'#cc4400', bg:'#200800', mode:'division',  desc:'Divide sin resto'   },
+    { label:'SUMAS',          icon:'➕', color:'#55dd55', stroke:'#228822', bg:'#031403', mode:'addition',  desc:'Dos cifras'         },
+  ];
+  const bw=178, bh=110, gap=13;
+  const totalW=btns.length*bw+(btns.length-1)*gap;
+  const bx0=(W-totalW)/2, by=62;
+
+  btns.forEach((b,i)=>{
+    const bx=bx0+i*(bw+gap);
+    // Shadow
+    cx.fillStyle='rgba(0,0,0,0.3)';
+    cx.beginPath(); cx.roundRect(bx+3,by+3,bw,bh,10); cx.fill();
+    // Background
+    cx.fillStyle=b.bg;
+    cx.beginPath(); cx.roundRect(bx,by,bw,bh,10); cx.fill();
+    cx.strokeStyle=b.stroke; cx.lineWidth=2.5;
+    cx.beginPath(); cx.roundRect(bx,by,bw,bh,10); cx.stroke();
+    // Icon
+    cx.font='28px serif'; cx.textAlign='center';
+    cx.fillText(b.icon, bx+bw/2, by+36);
+    // Label
+    cx.fillStyle=b.color;
+    cx.font="8px 'Press Start 2P',monospace";
+    cx.fillText(b.label, bx+bw/2, by+58);
+    // Desc
+    cx.fillStyle='#556677';
+    cx.font="6px 'Press Start 2P',monospace";
+    cx.fillText(b.desc, bx+bw/2, by+74);
+    // "30 niveles" tag
+    cx.fillStyle=b.stroke;
+    cx.font="5px 'Press Start 2P',monospace";
+    cx.fillText('30 niveles · 3 vidas', bx+bw/2, by+90);
+    cx.textAlign='left';
+  });
+
+  if((frame/32|0)%2===0) ct('CLICK en una materia para empezar',282,6,'#778899');
+}
+
+function handleStart(mx,my){
+  const btns=['tables','division','addition'];
+  const bw=178, bh=110, gap=13;
+  const totalW=3*bw+2*gap;
+  const bx0=(W-totalW)/2, by=62;
+  btns.forEach((mode,i)=>{
+    const bx=bx0+i*(bw+gap);
+    if(mx>=bx&&mx<=bx+bw&&my>=by&&my<=by+bh){
+      if(mode==='tables')   { gameMode='tables';   gs='levelSelect'; }
+      if(mode==='division') { gameMode='division'; gs='divSelect'; }
+      if(mode==='addition') { gameMode='addition'; gs='addSelect'; }
+    }
+  });
 }
 
 function drawLevelDone(){
@@ -837,7 +902,7 @@ function update(){
     }
     if(dino.timer>0) dino.timer--;
     else { gs='levelDone'; correct=0; levelWrong=0; if(customTables) lv=Math.min(lv+1,4); else lv++; }
-  } else if(gs==='start'||gs==='levelSelect'||gs==='tableSelect'||gs==='addSelect'||gs==='levelDone'||gs==='gameOver'||gs==='win'){
+  } else if(gs==='start'||gs==='levelSelect'||gs==='tableSelect'||gs==='addSelect'||gs==='divSelect'||gs==='levelDone'||gs==='gameOver'||gs==='win'){
     scroll+=0.5;
   }
 }
@@ -900,27 +965,15 @@ function drawLevelSelect(){
     ct('CLICK en un nivel  ·  ESPACIO = desde nivel 1',292,6,'#556677');
   }
 
-  // ── Botones modo extra ──
-  const _bh=22, _bpy=H-34, _gap=10;
-  const _bw1=188, _bw2=172, _btotal=_bw1+_gap+_bw2;
-  const _bx1=(W-_btotal)/2, _bx2=_bx1+_bw1+_gap;
-
-  // Botón práctica tablas
+  // ── Botón práctica libre ──
+  const _pbw=200, _pbh=22, _pbx=(W-200)/2, _pby=H-34;
   cx.fillStyle='#0d0d28';
-  cx.beginPath(); cx.roundRect(_bx1,_bpy,_bw1,_bh,5); cx.fill();
+  cx.beginPath(); cx.roundRect(_pbx,_pby,_pbw,_pbh,5); cx.fill();
   cx.strokeStyle='#4444aa'; cx.lineWidth=1.5;
-  cx.beginPath(); cx.roundRect(_bx1,_bpy,_bw1,_bh,5); cx.stroke();
+  cx.beginPath(); cx.roundRect(_pbx,_pby,_pbw,_pbh,5); cx.stroke();
   cx.textAlign='center'; cx.fillStyle='#8899ff';
   cx.font="6px 'Press Start 2P',monospace";
-  cx.fillText('★ PRÁCTICA TABLAS',_bx1+_bw1/2,_bpy+_bh/2+3);
-
-  // Botón modo sumas
-  cx.fillStyle='#0d1e10';
-  cx.beginPath(); cx.roundRect(_bx2,_bpy,_bw2,_bh,5); cx.fill();
-  cx.strokeStyle='#2a7a2a'; cx.lineWidth=1.5;
-  cx.beginPath(); cx.roundRect(_bx2,_bpy,_bw2,_bh,5); cx.stroke();
-  cx.fillStyle='#55dd55';
-  cx.fillText('➕ MODO SUMAS',_bx2+_bw2/2,_bpy+_bh/2+3);
+  cx.fillText('★ PRÁCTICA LIBRE DE TABLAS',W/2,_pby+_pbh/2+3);
   cx.textAlign='left';
 }
 
@@ -933,12 +986,8 @@ function handleLevelSelect(mx,my){
     const by=56+row*(bh+vg);
     if(mx>=bx&&mx<=bx+bw&&my>=by&&my<=by+bh){ startFrom(i+1); return; }
   }
-  // Botones modo extra
-  const _bh=22, _bpy=H-34, _gap=10;
-  const _bw1=188, _bw2=172, _btotal=_bw1+_gap+_bw2;
-  const _bx1=(W-_btotal)/2, _bx2=_bx1+_bw1+_gap;
-  if(mx>=_bx1&&mx<=_bx1+_bw1&&my>=_bpy&&my<=_bpy+_bh){ gs='tableSelect'; return; }
-  if(mx>=_bx2&&mx<=_bx2+_bw2&&my>=_bpy&&my<=_bpy+_bh){ gs='addSelect'; return; }
+  const _pbw=200,_pbh=22,_pbx=(W-200)/2,_pby=H-34;
+  if(mx>=_pbx&&mx<=_pbx+_pbw&&my>=_pby&&my<=_pby+_pbh){ gs='tableSelect'; }
 }
 
 function startFrom(startLv){
@@ -1074,59 +1123,157 @@ function startPractice(){
 }
 
 
-// ── Addition Mode Select ─────────────────────────────────────────────
-function drawAddSelect(){
+
+// ── Division Mode Select ─────────────────────────────────────────────
+function drawDivSelect(){
   drawBG();
   overlay();
 
-  ct('MODO SUMAS',22,14,'#55dd55');
-  ct('Suma de dos números de dos cifras',40,6,'#ffd040');
+  ct('MODO DIVISIÓN',22,14,'#ff8844');
+  ct('Divide para encontrar el resultado',40,6,'#ffd040');
 
-  // Preview difficulty table
   const rows=[
-    ['NVL  1 - 3',  '10-29 + 10-29', 'hasta  58'],
-    ['NVL  4 - 7',  '10-49 + 10-49', 'hasta  98'],
-    ['NVL  8 - 14', '10-79 + 10-79', 'hasta 158'],
-    ['NVL 15+',     '10-99 + 10-99', 'hasta 198'],
+    ['NVL  1 - 2',  'tablas ×1 ×2',     'ej: 14 ÷ 7 = ?'],
+    ['NVL  3 - 6',  'tablas ×1 ~ ×4',   'ej: 24 ÷ 6 = ?'],
+    ['NVL  7 - 10', 'tablas ×1 ~ ×5',   'ej: 35 ÷ 5 = ?'],
+    ['NVL 11+',     'tablas ×5 ~ ×10',  'ej: 72 ÷ 8 = ?'],
   ];
   const rh=28, rtop=62, rw=560, rx=(W-rw)/2;
   rows.forEach((row,i)=>{
     const ry=rtop+i*rh;
-    cx.fillStyle=i%2===0?'rgba(0,60,0,0.3)':'rgba(0,40,0,0.2)';
+    cx.fillStyle=i%2===0?'rgba(60,20,0,0.3)':'rgba(40,10,0,0.2)';
     cx.fillRect(rx,ry,rw,rh-2);
     cx.fillStyle='#ffd040'; cx.font="7px 'Press Start 2P',monospace"; cx.textAlign='left';
     cx.fillText(row[0], rx+10, ry+rh/2+3);
-    cx.fillStyle='#88ffaa';
+    cx.fillStyle='#ffaa66';
     cx.fillText(row[1], rx+180, ry+rh/2+3);
     cx.fillStyle='#aaaaaa';
-    cx.fillText(row[2], rx+400, ry+rh/2+3);
+    cx.fillText(row[2], rx+370, ry+rh/2+3);
     cx.textAlign='left';
   });
 
-  // Velocidad info
-  ct('Velocidad igual que modo tablas · 30 niveles',175,6,'#556677');
+  ct('Siempre resultado entero, sin decimales',175,6,'#556677');
 
-  // Botón jugar
   const pbw=200,pbh=28,pbx=(W-200)/2,pby=198;
-  cx.fillStyle='#0d2a10';
+  cx.fillStyle='#200800';
   cx.beginPath(); cx.roundRect(pbx,pby,pbw,pbh,7); cx.fill();
-  cx.strokeStyle='#3aff3a'; cx.lineWidth=1.5;
+  cx.strokeStyle='#ff6622'; cx.lineWidth=1.5;
   cx.beginPath(); cx.roundRect(pbx,pby,pbw,pbh,7); cx.stroke();
   cx.textAlign='center'; cx.fillStyle='#ffd040';
   cx.font="10px 'Press Start 2P',monospace";
-  cx.fillText('▶ JUGAR SUMAS',W/2,pby+pbh/2+4);
+  cx.fillText('▶ JUGAR DIVISIÓN',W/2,pby+pbh/2+4);
   cx.textAlign='left';
 
   if((frame/28|0)%2===0) ct('ESC = volver',282,6,'#334455');
 }
 
-function handleAddSelect(mx,my){
+function handleDivSelect(mx,my){
   const pbw=200,pbh=28,pbx=(W-200)/2,pby=198;
-  if(mx>=pbx&&mx<=pbx+pbw&&my>=pby&&my<=pby+pbh){ startAddition(); }
+  if(mx>=pbx&&mx<=pbx+pbw&&my>=pby&&my<=pby+pbh){ startDivision(); }
 }
 
-function startAddition(){
-  gameMode='addition'; customTables=null;
+function startDivision(){
+  gameMode='division'; customTables=null;
+  lv=1; lives=3; score=0; correct=0; levelWrong=0; lastWrong=0;
+  obs=null; obsTimer=100; frame=0; scroll=0; parts=[];
+  dino={y:GY,vy:0,jumping:false,state:'run',timer:0};
+  if(qTimer){ clearTimeout(qTimer); qTimer=null; }
+  lifeLostThisQ=false;
+  document.getElementById('qi').style.display='none';
+  gs='playing';
+  updateTableInfo();
+}
+
+// ── Addition Mode Select ─────────────────────────────────────────────
+function drawAddSelect(){
+  drawBG();
+  overlay(0.84);
+
+  // Dino bouncing
+  const bounce=Math.abs(Math.sin(frame*0.07))*8;
+  drawDino(68, GY-40-bounce);
+
+  cx.fillStyle='#228822'; cx.font="14px 'Press Start 2P',monospace";
+  cx.textAlign='center'; cx.fillText('MODO SUMAS',W/2+2,32); cx.textAlign='left';
+  cx.fillStyle='#55dd55'; cx.font="14px 'Press Start 2P',monospace";
+  cx.textAlign='center'; cx.fillText('MODO SUMAS',W/2,30); cx.textAlign='left';
+  ct('¿Cuántas cifras querés sumar?',48,6,'#ffd040');
+
+  const cards=[
+    {
+      digits:1, label:'1 CIFRA',
+      icon:'1+1', color:'#88ffaa', stroke:'#22aa44', bg:'#031a08',
+      ex:'7 + 5 = ?',
+      rows:['NVL 1-5: del 1 al 5','NVL 6+:  del 1 al 9'],
+      tag:'Para empezar'
+    },
+    {
+      digits:2, label:'2 CIFRAS',
+      icon:'10+',color:'#55dd55', stroke:'#228822', bg:'#031403',
+      ex:'34 + 27 = ?',
+      rows:['NVL 1-3: 10 a 29','NVL 4-7: 10 a 49','NVL 8+:  10 a 99'],
+      tag:'Nivel medio'
+    },
+    {
+      digits:3, label:'3 CIFRAS',
+      icon:'100',color:'#ffd040', stroke:'#aa8800', bg:'#1a1400',
+      ex:'234+156 = ?',
+      rows:['NVL 1-5:  100 a 299','NVL 6-15: 100 a 599','NVL 16+:  100 a 999'],
+      tag:'Desafío'
+    },
+  ];
+
+  const bw=178, bh=118, gap=13;
+  const totalW=cards.length*bw+(cards.length-1)*gap;
+  const bx0=(W-totalW)/2, by=58;
+
+  cards.forEach((c,i)=>{
+    const bx=bx0+i*(bw+gap);
+    // Shadow
+    cx.fillStyle='rgba(0,0,0,0.3)';
+    cx.beginPath(); cx.roundRect(bx+3,by+3,bw,bh,10); cx.fill();
+    // Card bg
+    cx.fillStyle=c.bg;
+    cx.beginPath(); cx.roundRect(bx,by,bw,bh,10); cx.fill();
+    cx.strokeStyle=c.stroke; cx.lineWidth=2.5;
+    cx.beginPath(); cx.roundRect(bx,by,bw,bh,10); cx.stroke();
+    // Icon / big label
+    cx.fillStyle=c.color;
+    cx.font="18px 'Press Start 2P',monospace"; cx.textAlign='center';
+    cx.fillText(c.icon, bx+bw/2, by+28);
+    // Main label
+    cx.font="9px 'Press Start 2P',monospace";
+    cx.fillText(c.label, bx+bw/2, by+46);
+    // Example
+    cx.fillStyle='#ffffff'; cx.font="7px 'Press Start 2P',monospace";
+    cx.fillText(c.ex, bx+bw/2, by+62);
+    // Rows
+    c.rows.forEach((r,ri)=>{
+      cx.fillStyle='#5a8a5a'; cx.font="5px 'Press Start 2P',monospace";
+      cx.fillText(r, bx+bw/2, by+76+ri*12);
+    });
+    // Tag badge
+    cx.fillStyle=c.stroke;
+    cx.font="5px 'Press Start 2P',monospace";
+    cx.fillText(c.tag, bx+bw/2, by+bh-6);
+    cx.textAlign='left';
+  });
+
+  if((frame/32|0)%2===0) ct('CLICK para elegir · ESC = volver',282,6,'#778899');
+}
+
+function handleAddSelect(mx,my){
+  const bw=178, bh=118, gap=13;
+  const totalW=3*bw+2*gap;
+  const bx0=(W-totalW)/2, by=58;
+  [1,2,3].forEach((d,i)=>{
+    const bx=bx0+i*(bw+gap);
+    if(mx>=bx&&mx<=bx+bw&&my>=by&&my<=by+bh){ startAddition(d); }
+  });
+}
+
+function startAddition(digits=2){
+  gameMode='addition'; addDigits=digits; customTables=null;
   lv=1; lives=3; score=0; correct=0; levelWrong=0; lastWrong=0;
   obs=null; obsTimer=100; frame=0; scroll=0; parts=[];
   dino={y:GY,vy:0,jumping:false,state:'run',timer:0};
@@ -1144,6 +1291,7 @@ function render(){
   if(gs==='start')       { drawStart(); return; }
   if(gs==='levelSelect') { drawLevelSelect(); return; }
   if(gs==='tableSelect') { drawTableSelect(); return; }
+  if(gs==='divSelect')   { drawDivSelect(); return; }
   if(gs==='addSelect')   { drawAddSelect(); return; }
   if(gs==='levelDone')   { drawLevelDone(); return; }
   if(gs==='gameOver')    { drawGameOver(); return; }
@@ -1185,9 +1333,9 @@ function playSound(ok){
 
 // ── Controls ─────────────────────────────────────
 function action(){
-  if(gs==='start')    { gs='levelSelect'; lv=1; return; }
+  if(gs==='start')    { gameMode='tables'; gs='levelSelect'; lv=1; return; }
   if(gs==='levelDone'){ nextLevel(); return; }
-  if(gs==='gameOver'||gs==='win') { customTables=null; gameMode='tables'; gs='levelSelect'; return; }
+  if(gs==='gameOver'||gs==='win') { customTables=null; gameMode='tables'; gs='start'; return; }
 }
 
 function startGame(){
@@ -1212,9 +1360,14 @@ function nextLevel(){
 }
 
 function updateTableInfo(){
+  if(gameMode==='division'){
+    const t=getTables(lv);
+    document.getElementById('tinfo').textContent='DIVISIÓN: tablas '+t.map(n=>n+'×').join(' ');
+    return;
+  }
   if(gameMode==='addition'){
-    const maxA=lv<=3?29:lv<=7?49:lv<=14?79:99;
-    document.getElementById('tinfo').textContent=`SUMAS: 10-${maxA} + 10-${maxA}`;
+    const labels={1:'1 CIFRA (1-9)',2:'2 CIFRAS (10-99)',3:'3 CIFRAS (100-999)'};
+    document.getElementById('tinfo').textContent='SUMAS '+labels[addDigits]+' · nivel '+lv;
     return;
   }
   if(customTables){
@@ -1229,9 +1382,11 @@ cv.addEventListener('click', e=>{
   const rect=cv.getBoundingClientRect();
   const mx=(e.clientX-rect.left)*(W/rect.width);
   const my=(e.clientY-rect.top)*(H/rect.height);
-  if(gs==='levelSelect'){ handleLevelSelect(mx,my); }
+  if(gs==='start'){         handleStart(mx,my); }
+  else if(gs==='levelSelect'){ handleLevelSelect(mx,my); }
   else if(gs==='tableSelect'){ handleTableSelect(mx,my); }
   else if(gs==='addSelect'){   handleAddSelect(mx,my); }
+  else if(gs==='divSelect'){   handleDivSelect(mx,my); }
   else { action(); }
 });
 
@@ -1242,29 +1397,33 @@ cv.addEventListener('touchend', e=>{
   const rect=cv.getBoundingClientRect();
   const mx=(touch.clientX-rect.left)*(W/rect.width);
   const my=(touch.clientY-rect.top)*(H/rect.height);
-  if(gs==='levelSelect'){ handleLevelSelect(mx,my); }
+  if(gs==='start'){         handleStart(mx,my); }
+  else if(gs==='levelSelect'){ handleLevelSelect(mx,my); }
   else if(gs==='tableSelect'){ handleTableSelect(mx,my); }
   else if(gs==='addSelect'){   handleAddSelect(mx,my); }
+  else if(gs==='divSelect'){   handleDivSelect(mx,my); }
   else { action(); }
 },{ passive:false });
 document.addEventListener('keydown', e=>{
   if(e.code==='Space'){
     e.preventDefault();
-    if(gs==='levelSelect') startFrom(1);
+    if(gs==='start')       { gameMode='tables'; gs='levelSelect'; }
+    else if(gs==='levelSelect') startFrom(1);
     else action();
   }
   if(e.code==='Escape'){
     if(gs==='levelSelect')                       gs='start';
     else if(gs==='tableSelect')                  gs='levelSelect';
-    else if(gs==='addSelect')                    gs='levelSelect';
+    else if(gs==='addSelect')                    gs='start';
+    else if(gs==='divSelect')                    gs='start';
     else if(gs==='playing'||gs==='question'||gs==='wait'||gs==='levelDone'){
       customTables=null; gameMode='tables';
       if(qTimer){ clearTimeout(qTimer); qTimer=null; }
       document.getElementById('qi').style.display='none';
-      gs='levelSelect';
+      gs='start';
     }
     else if(gs==='gameOver'||gs==='win'){
-      customTables=null; gs='levelSelect';
+      customTables=null; gameMode='tables'; gs='start';
     }
   }
 });
