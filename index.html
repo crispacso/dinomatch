@@ -16,22 +16,32 @@
     min-height: 100vh;
     padding: 20px 10px;
     font-family: 'Press Start 2P', 'Courier New', monospace;
+    /* Evita zoom en doble tap en iOS */
+    touch-action: manipulation;
   }
   #wrap {
     position: relative;
     width: 100%;
     max-width: 720px;
   }
-  canvas { display: block; width: 100%; height: auto; image-rendering: pixelated; }
-  
+  canvas {
+    display: block; width: 100%; height: auto;
+    image-rendering: pixelated;
+    /* Evita selección accidental al tocar */
+    -webkit-user-select: none; user-select: none;
+    touch-action: manipulation;
+  }
+
+  /* ── Modal pregunta ── */
   #qi {
     position: absolute;
     top: 0; left: 0; right: 0; bottom: 16px;
     display: none;
     align-items: center;
     justify-content: center;
-    background: rgba(0,0,16,0.78);
+    background: rgba(0,0,16,0.82);
     z-index: 20;
+    padding: 8px;          /* espacio lateral en móvil */
   }
   #qbox {
     background: #10102e;
@@ -39,7 +49,8 @@
     border-radius: 10px;
     padding: 22px 30px;
     text-align: center;
-    min-width: 280px;
+    width: 100%;
+    max-width: 340px;
     box-shadow: 0 0 0 2px #10102e, 0 0 0 6px rgba(255,208,64,0.15);
   }
   #qsubtitle { font-size: 8px; color: #ffd040; margin-bottom: 12px; letter-spacing: 1px; }
@@ -47,7 +58,7 @@
   #qdots { display: flex; justify-content: center; gap: 9px; margin-bottom: 14px; }
   .dot { width: 14px; height: 14px; border-radius: 50%; background: #ffd040; border: 2px solid #aa8800; transition: background 0.2s; }
   .dot.x { background: #ff3030; border-color: #880000; }
-  #qrow { display: flex; gap: 10px; justify-content: center; }
+  #qrow { display: flex; gap: 10px; justify-content: center; align-items: center; }
   #qin {
     font-family: 'Press Start 2P','Courier New',monospace;
     font-size: 22px; width: 110px; text-align: center;
@@ -55,6 +66,9 @@
     border: 3px solid #3aaa3a; border-radius: 5px; outline: none;
     transition: border-color 0.15s, color 0.15s;
     -moz-appearance: textfield;
+    /* Previene zoom al enfocar en iOS (necesita >=16px) */
+    font-size: clamp(16px, 4vw, 22px);
+    touch-action: manipulation;
   }
   #qin::-webkit-outer-spin-button, #qin::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
   #qin.err { border-color: #ff3030; color: #ff3030; animation: shake 0.35s; }
@@ -67,16 +81,53 @@
     border: 3px solid #1a6a1a; border-radius: 5px;
     cursor: pointer; box-shadow: 3px 3px 0 #1a6a1a;
     transition: transform 0.08s, box-shadow 0.08s;
+    /* Área de toque mínima recomendada 44px */
+    min-height: 44px;
+    touch-action: manipulation;
   }
   #qok:hover { transform: translate(-1px,-1px); box-shadow: 4px 4px 0 #1a6a1a; }
   #qok:active { transform: translate(2px,2px); box-shadow: 1px 1px 0 #1a6a1a; }
   #qhint { font-size: 9px; color: #ff6060; margin-top: 10px; min-height: 16px; }
-  
+
   #tinfo {
     background: #080818; border: 2px solid #1a3a1a;
     border-top: none; border-radius: 0 0 6px 6px;
     font-size: 7px; color: #3a6a3a; text-align: center;
     padding: 5px 0; letter-spacing: 1px;
+  }
+
+  /* ── Ajustes para pantallas pequeñas ── */
+  @media (max-width: 480px) {
+    body { padding: 10px 6px; }
+
+    #qbox {
+      padding: 16px 14px;
+      border-width: 3px;
+    }
+    #qsubtitle { font-size: 6px; margin-bottom: 8px; }
+    #qtxt {
+      font-size: clamp(18px, 6vw, 26px);
+      margin-bottom: 10px;
+      letter-spacing: 2px;
+    }
+    #qdots { gap: 7px; margin-bottom: 10px; }
+    .dot { width: 12px; height: 12px; }
+    #qrow { gap: 8px; }
+    #qin {
+      width: 90px;
+      padding: 8px 6px;
+    }
+    #qok { font-size: 9px; padding: 8px 12px; }
+    #qhint { font-size: 7px; }
+    #tinfo { font-size: 6px; }
+  }
+
+  /* Pantallas muy pequeñas (≤360px) */
+  @media (max-width: 360px) {
+    #qbox { padding: 12px 10px; }
+    #qtxt { font-size: 16px; letter-spacing: 1px; }
+    #qin { width: 80px; font-size: 16px !important; }
+    #qok { font-size: 8px; padding: 8px 10px; }
   }
 </style>
 </head>
@@ -719,6 +770,20 @@ cv.addEventListener('click', e=>{
     action();
   }
 });
+
+// ── Touch: mapea coordenadas táctiles igual que click ──
+cv.addEventListener('touchend', e=>{
+  e.preventDefault();
+  const touch=e.changedTouches[0];
+  if(gs==='levelSelect'){
+    const rect=cv.getBoundingClientRect();
+    const mx=(touch.clientX-rect.left)*(W/rect.width);
+    const my=(touch.clientY-rect.top)*(H/rect.height);
+    handleLevelSelect(mx,my);
+  } else {
+    action();
+  }
+},{ passive:false });
 document.addEventListener('keydown', e=>{
   if(e.code==='Space'){
     e.preventDefault();
